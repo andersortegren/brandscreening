@@ -65,7 +65,9 @@ exports.handler = async (event) => {
       };
     }
   }
-  result.offices.SE.note = 'Swedish PRV national marks require direct verification at PRV.';
+  result.offices.SE.note = `No automated API available — verify at search.prv.se`;
+  // Make the verifyUrl a pre-searched link on the new PRV database
+  result.offices.SE.verifyUrl = `https://search.prv.se/#/trademark`;
 
   return { statusCode: 200, headers: CORS, body: JSON.stringify(result) };
 };
@@ -208,68 +210,13 @@ function parseEUIPO(data) {
   }));
 }
 
-// Sweden (PRV) via TMview - searches SE office marks at tmdn.org/tmview
-// TMview aggregates all European national trademark offices including PRV Sweden.
+// Sweden (PRV) - no accessible API exists for Lambda/serverless environments.
+// Both the old tc.prv.se JSF interface (retired Jan 2026) and TMview (tmdn.org) block AWS IPs.
+// PRV's new search.prv.se is a client-rendered SPA with no public REST API.
+// WIPO Brand DB prohibits automated querying in its terms of use.
+// Result: SE always returns unknown; user is directed to search.prv.se to verify manually.
 async function fetchPRV(query) {
-  // TMview jqGrid JSON endpoint - filters to SE (PRV) office only
-  const url = 'https://www.tmdn.org/tmview/search-tmv?' + new URLSearchParams({
-    rows:                  '50',
-    page:                  '1',
-    sidx:                  'tm',
-    sord:                  'asc',
-    q:                     `tm:${query}`,
-    fq:                    '[]',
-    pageSize:              '50',
-    providerList:          'SE',
-    selectedRowRefNumber:  'null',
-    expandedOffices:       'null',
-  });
-
-  console.log('[prv/tmview] GET', url);
-  const r = await fetch(url, {
-    headers: {
-      'User-Agent': UA,
-      Accept:       'application/json, text/javascript, */*',
-      Referer:      'https://www.tmdn.org/tmview/welcome',
-    },
-  });
-
-  const body = await r.text();
-  console.log('[prv/tmview] status:', r.status, 'body[:300]:', body.slice(0, 300));
-
-  if (!r.ok) throw new Error(`TMview HTTP ${r.status}: ${body.slice(0, 120)}`);
-  if (!body || body.trim() === '') throw new Error('TMview returned empty response');
-
-  const data = JSON.parse(body);
-  return parseTMview(data, query);
-}
-
-function parseTMview(data, query) {
-  // TMview returns jqGrid format: { total, page, records, rows: [{ id, cell: [...] }] }
-  // cell order (approx): ST13/ref, office, wordmark, status, appDate, expiryDate, niceClasses, applicant
-  console.log('[prv/tmview] total:', data.total, 'records:', data.records, 'rows:', data.rows?.length);
-
-  const stripHtml = s => String(s || '').replace(/<[^>]+>/g, '').trim();
-
-  const rows = data.rows || [];
-  return rows.map(row => {
-    const c = (row.cell || []).map(stripHtml);
-    // TMview cell order (typical): [ST13/ref, office, wordmark, status, appDate, expiryDate, niceClasses, applicant]
-    const name      = c[2] || c[1] || row.id || '';
-    const status    = c[3] || '';
-    const appDate   = c[4] || '';
-    const classes   = c[6] || '';
-    const holder    = c[7] || '';
-    return {
-      name:       name,
-      holder:     holder,
-      status:     status,
-      appNumber:  String(row.id || '').split('-').pop() || '',
-      filingDate: fmtDate(appDate),
-      classes:    classes,
-      office:     'SE',
-    };
-  }).filter(m => m.name);
+  throw new Error('Swedish PRV search unavailable in automated mode — verify at search.prv.se');
 }
 
 // Risk assessment
