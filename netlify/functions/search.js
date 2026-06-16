@@ -134,40 +134,41 @@ async function fetchWIPO(query) {
     console.log('[altcha] solved: n =', solution.number);
 
     // Step 6 — GET https://api.branddb.wipo.int/dbinfo?token=<token>
-    // WIPO's JS also sends a HashSearch header with a random GUID — required for the server to accept the token.
+    // WIPO's JS sends a HashSearch header with a GUID — required for the server to accept the token.
+    // The response body likely contains the API key / JWT needed for subsequent calls.
     const hashSearch = crypto.randomUUID();
     const dbinfoUrl  = `https://api.branddb.wipo.int/dbinfo?token=${encodeURIComponent(token)}`;
-    const dbRes = await fetch(dbinfoUrl, { headers: { ...BROWSER_HDR, HashSearch: hashSearch } });
-    console.log('[dbinfo] status:', dbRes.status);
+    const dbRes  = await fetch(dbinfoUrl, { headers: { ...BROWSER_HDR, HashSearch: hashSearch } });
+    const dbBody = await dbRes.text();
+    console.log('[dbinfo] status:', dbRes.status, 'body:', dbBody.slice(0, 300));
 
-    // Step 7 — set session_id=<uuid> cookie and retry original API
-    // Use API_HDR (no sec-fetch-*, no Origin/Referer) so the server returns JSON
-    // instead of Angular SSR app shell
-    const sessionCookie = `session_id=${encodeURIComponent(uuid)}`;
-    const finalCookies  = mergeCookes(warmCookies, sessionCookie);
-    console.log('[retry] cookies:', finalCookies.slice(0, 150));
+    // Parse the dbinfo body — it may be a plain token string or JSON with an access_token / apiKey field
+    let apiToken = null;
+    try {
+      const dbJson = JSON.parse(dbBody);
+      console.log('[dbinfo] json keys:', Object.keys(dbJson).join(','));
+      apiToken = dbJson.token || dbJson.apiKey || dbJson.api_key || dbJson.access_token || dbJson.key || null;
+    } catch {
+      const trimmed = dbBody.trim();
+      if (trimmed && !trimmed.startsWith('<')) apiToken = trimmed;
+    }
+    console.log('[dbinfo] apiToken found?', !!apiToken, apiToken ? apiToken.slice(0, 40) : 'none');
 
-    const apiHdrWithCookie = { ...API_HDR, Cookie: finalCookies };
+    // Step 7 — retry the API on api. subdomain with token + session cookie
+    const sessionCookie    = `session_id=${encodeURIComponent(uuid)}`;
+    const finalCookies     = mergeCookes(warmCookies, sessionCookie);
+    const apiSubUrl        = apiUrl.replace('https://branddb.wipo.int', 'https://api.branddb.wipo.int');
+    const authHdr          = apiToken ? { Authorization: `Bearer ${apiToken}`, 'x-api-key': apiToken } : {};
+    const apiHdrWithAuth   = { ...API_HDR, Cookie: finalCookies, ...authHdr };
 
-    // Attempt A — original branddb.wipo.int URL with clean API headers
-    const r2a   = await fetch(apiUrl, { signal: abort.signal, headers: apiHdrWithCookie });
-    const b2a   = await r2a.text();
-    const html2a = b2a.trimStart().startsWith('<');
-    console.log('[api2a] status:', r2a.status, 'html?', html2a, 'snippet:', b2a.slice(0, 120));
+    console.log('[api2] url:', apiSubUrl.slice(0, 80));
+    const r2   = await fetch(apiSubUrl, { signal: abort.signal, headers: apiHdrWithAuth });
+    const b2   = await r2.text();
+    const html2 = b2.trimStart().startsWith('<');
+    console.log('[api2] status:', r2.status, 'html?', html2, 'snippet:', b2.slice(0, 200));
 
-    if (!html2a) return parseDocsJson(r2a.status, b2a);
-
-    // Attempt B — api.branddb.wipo.int subdomain (where captcha/dbinfo live)
-    const apiSubUrl = apiUrl.replace('https://branddb.wipo.int', 'https://api.branddb.wipo.int');
-    console.log('[api2b] trying:', apiSubUrl.slice(0, 80));
-    const r2b   = await fetch(apiSubUrl, { signal: abort.signal, headers: apiHdrWithCookie });
-    const b2b   = await r2b.text();
-    const html2b = b2b.trimStart().startsWith('<');
-    console.log('[api2b] status:', r2b.status, 'html?', html2b, 'snippet:', b2b.slice(0, 120));
-
-    if (!html2b) return parseDocsJson(r2b.status, b2b);
-
-    throw new Error(`Still HTML after all attempts. HTML (0-600): ${b2a.slice(0, 600)}`);
+    if (!html2) return parseDocsJson(r2.status, b2);
+    throw new Error(`Still HTML after all attempts. Snippet: ${b2.slice(0, 400)}`);
 
   } finally {
     clearTimeout(timer);
