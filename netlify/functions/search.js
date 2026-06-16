@@ -1,6 +1,9 @@
-// Brand Name Check — Trademark search across US (USPTO via MarkerAPI), EU (EUIPO), and Sweden (PRV).
-// Requires env vars: MARKER_USERNAME + MARKER_PASSWORD (USPTO) and EUIPO_CLIENT_ID + EUIPO_CLIENT_SECRET (EU).
-// Set EUIPO_SANDBOX=false to use production EUIPO API (default: sandbox).
+// Brand Name Check - Trademark search across US (USPTO via Parse.bot), EU (EUIPO), and Sweden (PRV).
+// Env vars needed:
+//   PARSE_API_KEY       - free at parse.bot (USPTO data)
+//   EUIPO_CLIENT_ID     - from dev.euipo.europa.eu app registration
+//   EUIPO_CLIENT_SECRET - from dev.euipo.europa.eu app registration
+//   EUIPO_SANDBOX       - set to "true" to use sandbox, omit or set "false" for production
 
 const LIVE_KEYWORDS = [
   'registered', 'live', 'pending', 'published', 'filed', 'active',
@@ -21,7 +24,7 @@ const CORS = {
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-// EUIPO OAuth2 token cache — persists across warm function invocations
+// EUIPO OAuth2 token cache - persists across warm function invocations
 let euipoToken = null;
 let euipoTokenExpires = 0;
 
@@ -65,64 +68,54 @@ exports.handler = async (event) => {
   return { statusCode: 200, headers: CORS, body: JSON.stringify(result) };
 };
 
-// ─── USPTO via MarkerAPI ───────────────────────────────────────────────────────
-
+// USPTO via Parse.bot (wraps tmsearch.uspto.gov) - free tier 100 req/month
 async function fetchUSPTO(query) {
-  const username = process.env.MARKER_USERNAME;
-  const password = process.env.MARKER_PASSWORD;
-
-  if (!username || !password) {
-    throw new Error(
-      'USPTO not configured — add MARKER_USERNAME + MARKER_PASSWORD in Netlify env vars ' +
-      '(free tier at markerapi.com)'
-    );
+  const apiKey = process.env.PARSE_API_KEY;
+  if (!apiKey) {
+    throw new Error('USPTO not configured - add PARSE_API_KEY (free at parse.bot)');
   }
 
-  // MarkerAPI docs use dev.markerapi.com in their PHP examples; try both
-  const hosts = ['markerapi.com', 'dev.markerapi.com'];
-  let data = null;
+  const url = 'https://api.parse.bot/scraper/82426fc4-aff3-4504-aa52-1dea89a26c73/search_trademarks' +
+              `?limit=50&query=${encodeURIComponent(query)}&offset=0`;
 
-  for (const host of hosts) {
-    const url = `https://${host}/api/v2/trademarks/trademark/${encodeURIComponent(query)}` +
-                `/status/all/start/1/username/${encodeURIComponent(username)}` +
-                `/password/${encodeURIComponent(password)}`;
-    try {
-      const r = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': UA } });
-      const body = await r.text();
-      console.log(`[uspto] ${host} -> ${r.status} body[:120]:`, body.slice(0, 120));
-      if (r.ok) { data = JSON.parse(body); break; }
-    } catch (e) {
-      console.error(`[uspto] ${host} fetch error:`, e.message, e.cause?.message || '');
-    }
+  let body;
+  try {
+    const r = await fetch(url, {
+      headers: { 'X-API-Key': apiKey, Accept: 'application/json', 'User-Agent': UA },
+    });
+    body = await r.text();
+    console.log('[uspto] status:', r.status, 'body[:200]:', body.slice(0, 200));
+    if (!r.ok) throw new Error(`Parse.bot HTTP ${r.status}: ${body.slice(0, 120)}`);
+  } catch (e) {
+    throw new Error(`USPTO fetch error: ${e.message}`);
   }
 
-  if (!data) throw new Error('MarkerAPI unreachable — check [uspto] logs for details');
-  console.log('[uspto] count:', data.count, 'keys:', Object.keys(data).join(','));
-  if (data.trademarks?.[0]) console.log('[uspto] first keys:', Object.keys(data.trademarks[0]).join(','));
+  const wrapper = JSON.parse(body);
+  const data    = wrapper.data || wrapper;
+  console.log('[uspto] total:', data.total, 'returned:', data.trademarks?.length);
 
   return (data.trademarks || []).map(t => ({
-    name:       t.wordmark || t.keyword || '',
-    holder:     typeof t.owner === 'object' ? (t.owner?.name || '') : (t.owner || ''),
-    status:     t.statusdescription || t.status || t.statuscode || '',
-    appNumber:  t.serialnumber || t.registrationnumber || '',
-    filingDate: fmtDate(t.filingdate || t.applicationdate || ''),
-    classes:    arrToStr(t.code || t.niceclass || ''),
+    name:       t.wordmark || '',
+    holder:     Array.isArray(t.owner_name) ? (t.owner_name[0] || '') : (t.owner_name || ''),
+    status:     t.status || '',
+    appNumber:  t.serial_number || t.registration_id || '',
+    filingDate: fmtDate(t.filed_date || t.registration_date || ''),
+    classes:    arrToStr(t.international_class || []),
     office:     'US',
   }));
 }
 
-// ─── EU via EUIPO OAuth2 API ───────────────────────────────────────────────────
-
+// EU via EUIPO OAuth2 API (production portal: dev.euipo.europa.eu)
 async function getEUIPOToken() {
   if (euipoToken && Date.now() < euipoTokenExpires) return euipoToken;
 
   const clientId     = process.env.EUIPO_CLIENT_ID;
   const clientSecret = process.env.EUIPO_CLIENT_SECRET;
-  const sandbox      = process.env.EUIPO_SANDBOX !== 'false'; // default: sandbox
+  const sandbox      = process.env.EUIPO_SANDBOX === 'true'; // default: production
 
   if (!clientId || !clientSecret) {
     throw new Error(
-      'EUIPO not configured — register at dev.euipo.europa.eu and add ' +
+      'EUIPO not configured - register at dev.euipo.europa.eu, add ' +
       'EUIPO_CLIENT_ID + EUIPO_CLIENT_SECRET in Netlify env vars'
     );
   }
@@ -130,6 +123,8 @@ async function getEUIPOToken() {
   const tokenUrl = sandbox
     ? 'https://auth-sandbox.euipo.europa.eu/oidc/accessToken'
     : 'https://auth.euipo.europa.eu/oidc/accessToken';
+
+  console.log('[euipo] fetching token from', sandbox ? 'sandbox' : 'production');
 
   const body = new URLSearchParams({
     client_id:     clientId,
@@ -160,31 +155,25 @@ async function fetchEUIPO(query) {
   const clientId = process.env.EUIPO_CLIENT_ID;
   if (!clientId) {
     throw new Error(
-      'EUIPO not configured — register at dev.euipo.europa.eu and add ' +
+      'EUIPO not configured - register at dev.euipo.europa.eu, add ' +
       'EUIPO_CLIENT_ID + EUIPO_CLIENT_SECRET in Netlify env vars'
     );
   }
 
-  const sandbox = process.env.EUIPO_SANDBOX !== 'false';
+  const sandbox = process.env.EUIPO_SANDBOX === 'true';
   const base    = sandbox
     ? 'https://api-sandbox.euipo.europa.eu/trademark-search'
     : 'https://api.euipo.europa.eu/trademark-search';
 
   const token = await getEUIPOToken();
 
-  // Try both common query param names — log response to discover correct one
-  const params = new URLSearchParams({
-    wordmark: query,
-    page:     '0',
-    size:     '50',
-  });
-
-  const url = `${base}/trademarks?${params}`;
+  const params = new URLSearchParams({ wordmark: query, page: '0', size: '50' });
+  const url    = `${base}/trademarks?${params}`;
   console.log('[euipo] GET', url);
 
   const r = await fetch(url, {
     headers: {
-      Authorization:    `Bearer ${token}`,
+      Authorization:     `Bearer ${token}`,
       'X-IBM-Client-Id': clientId,
       Accept:            'application/json',
       'User-Agent':      UA,
@@ -217,14 +206,12 @@ function parseEUIPO(data) {
   }));
 }
 
-// ─── Sweden (PRV) ─────────────────────────────────────────────────────────────
-
+// Sweden (PRV) - no public API; users verify directly at PRV
 async function fetchPRV(query) {
   return [];
 }
 
-// ─── Risk assessment ──────────────────────────────────────────────────────────
-
+// Risk assessment
 function buildOfficeResult(marks, query) {
   const q     = query.toLowerCase().trim();
   const live  = marks.filter(m => LIVE_KEYWORDS.some(k => m.status.toLowerCase().includes(k)));
@@ -236,8 +223,6 @@ function buildOfficeResult(marks, query) {
     marks,
   };
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function arrToStr(v) {
   if (Array.isArray(v)) return v.join(', ');
