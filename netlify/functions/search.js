@@ -96,15 +96,22 @@ async function fetchWIPO(query) {
 
     // Step 3 — CAPTCHA detected: extract URLs from challenge page HTML
     const caps1 = mergeCookes(warmCookies, getCookies(r1));
-    const challengeUrl = extractChallengeUrl(body1);
-    const verifyUrl    = extractVerifyUrl(body1);
-    console.log('[altcha] challengeUrl:', challengeUrl, ' | verifyUrl:', verifyUrl);
-    // Log more of the HTML for debugging if needed
-    console.log('[altcha] HTML snippet (0-600):', body1.slice(0, 600));
+
+    // Log the full HTML so we can see the complete JS/form structure
+    console.log('[captcha] HTML (0-2000):', body1.slice(0, 2000));
+
+    // Extract the UUID embedded in the challenge page JavaScript
+    // Format: let uuid = "timestamp|token";
+    const uuidMatch = body1.match(/let\s+uuid\s*=\s*["']([^"']+)["']/);
+    const uuid = uuidMatch ? uuidMatch[1] : null;
+    console.log('[captcha] uuid:', uuid);
+
+    const challengeUrl = extractChallengeUrl(body1, uuid);
+    console.log('[altcha] challengeUrl:', challengeUrl);
 
     // Step 4 — fetch the challenge JSON
     const cRes = await fetch(challengeUrl, { headers: cookieHdr(caps1) });
-    if (!cRes.ok) throw new Error(`Challenge JSON fetch failed: HTTP ${cRes.status}`);
+    if (!cRes.ok) throw new Error(`Challenge JSON fetch: HTTP ${cRes.status} from ${challengeUrl}`);
     const challenge = await cRes.json();
     const caps2 = mergeCookes(caps1, getCookies(cRes));
     console.log('[altcha] challenge:', JSON.stringify(challenge));
@@ -114,19 +121,31 @@ async function fetchWIPO(query) {
     const token    = Buffer.from(JSON.stringify(solution)).toString('base64');
     console.log('[altcha] solved: n =', solution.number);
 
-    // Step 6 — POST solution to verification endpoint → get session cookie
+    // Step 6a — try: append solution as query param to the API URL (common in custom Altcha gateways)
+    const apiUrlWithToken = apiUrl + `&altcha=${encodeURIComponent(token)}` + (uuid ? `&uuid=${encodeURIComponent(uuid)}` : '');
+    const r2a    = await fetch(apiUrlWithToken, { signal: abort.signal, headers: cookieHdr(caps2) });
+    const body2a = await r2a.text();
+    const isHtml2a = body2a.trimStart().startsWith('<');
+    console.log('[api2a] status:', r2a.status, 'html?', isHtml2a);
+
+    if (!isHtml2a) return parseDocsJson(r2a.status, body2a);
+
+    // Step 6b — try: POST solution to verify endpoint → get session cookie, then retry
+    const verifyUrl = extractVerifyUrl(body1, uuid);
+    console.log('[altcha] verifyUrl:', verifyUrl);
+
     const vRes = await fetch(verifyUrl, {
       method: 'POST',
       redirect: 'manual',
       headers: {
         ...cookieHdr(caps2),
         'Content-Type': 'application/x-www-form-urlencoded',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        Accept: 'text/html,application/xhtml+xml',
       },
-      body: `altcha=${encodeURIComponent(token)}`,
+      body: new URLSearchParams({ altcha: token, ...(uuid ? { uuid } : {}) }).toString(),
     });
     const caps3 = mergeCookes(caps2, getCookies(vRes));
-    console.log('[verify] status:', vRes.status, 'cookies after:', caps3.slice(0, 120));
+    console.log('[verify] status:', vRes.status, 'location:', vRes.headers.get('location'), 'cookies:', caps3.slice(0, 150));
 
     // Step 7 — retry original API with verified session cookie
     const r2    = await fetch(apiUrl, { signal: abort.signal, headers: cookieHdr(caps3) });
@@ -134,7 +153,7 @@ async function fetchWIPO(query) {
     const isHtml2 = body2.trimStart().startsWith('<');
     console.log('[api2] status:', r2.status, 'html?', isHtml2);
 
-    if (isHtml2) throw new Error(`Still HTML after verify (status ${r2.status}). Snippet: ${body2.slice(0, 600)}`);
+    if (isHtml2) throw new Error(`Still HTML after all attempts. HTML (0-1500): ${body2.slice(0, 1500)}`);
     return parseDocsJson(r2.status, body2);
 
   } finally {
@@ -158,30 +177,49 @@ async function prewarmSession() {
 // HTML parsing helpers
 // ---------------------------------------------------------------------------
 
-function extractChallengeUrl(html) {
+function extractChallengeUrl(html, uuid) {
+  // 1. Look for challengeurl attribute on the widget element
   const m = html.match(/challenge(?:url|Url|-url)=["']([^"']+)["']/i) ||
             html.match(/data-challenge(?:-url)?=["']([^"']+)["']/i);
-  if (!m) throw new Error('No Altcha challengeurl found in CAPTCHA HTML: ' + html.slice(0, 500));
-  const u = m[1];
-  return u.startsWith('http') ? u : WIPO_BASE + u;
+  if (m) {
+    const u = m[1];
+    return u.startsWith('http') ? u : WIPO_BASE + u;
+  }
+
+  // 2. Look for challenge URL in JS (e.g. fetch('/branddb/altcha?uuid=...'))
+  const jsUrl = html.match(/fetch\(["']([^"']*altcha[^"']*)["']/i);
+  if (jsUrl) {
+    const u = jsUrl[1];
+    return u.startsWith('http') ? u : WIPO_BASE + u;
+  }
+
+  // 3. Construct from UUID using known WIPO path patterns
+  if (uuid) {
+    return `${WIPO_BASE}/branddb/altcha?uuid=${encodeURIComponent(uuid)}`;
+  }
+
+  throw new Error('No challenge URL found. HTML: ' + html.slice(0, 600));
 }
 
-function extractVerifyUrl(html) {
-  // Check for explicit verifyurl attribute on the widget
+function extractVerifyUrl(html, uuid) {
+  // 1. Explicit verifyurl attribute
   const va = html.match(/verify(?:url|Url|-url)=["']([^"']+)["']/i);
   if (va) return va[1].startsWith('http') ? va[1] : WIPO_BASE + va[1];
 
-  // Check for a <form action="...">
+  // 2. Form action
   const fa = html.match(/<form[^>]+action=["']([^"'#?][^"']*?)["']/i);
   if (fa) return fa[1].startsWith('http') ? fa[1] : WIPO_BASE + fa[1];
 
-  // Derive from challengeUrl pattern: /foo/challenge → /foo/verify
-  try {
-    const cu = extractChallengeUrl(html);
-    return cu.replace(/\/challenge(\?.*)?$/, '/verify').replace(/\?.*$/, '');
-  } catch {}
+  // 3. JS fetch/post URL in the page
+  const jsPost = html.match(/(?:post|submit)\s*\(\s*["']([^"']+)["']/i);
+  if (jsPost) {
+    const u = jsPost[1];
+    return u.startsWith('http') ? u : WIPO_BASE + u;
+  }
 
-  // Last resort: common Altcha middleware paths
+  // 4. Derive from challenge path: /altcha → /altcha-verify
+  if (uuid) return `${WIPO_BASE}/branddb/altcha-verify`;
+
   return `${WIPO_BASE}/altcha-verify`;
 }
 
