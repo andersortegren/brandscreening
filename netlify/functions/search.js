@@ -90,30 +90,33 @@ async function fetchWIPO(query) {
     const r1    = await fetch(apiUrl, { signal: abort.signal, headers: cookieHdr(warmCookies) });
     const body1 = await r1.text();
     const isHtml1 = body1.trimStart().startsWith('<');
-    console.log('[api1] status:', r1.status, 'html?', isHtml1, 'ct:', r1.headers.get('content-type'));
+    console.log('[api1] status:', r1.status, 'html?', isHtml1);
 
     if (!isHtml1) return parseDocsJson(r1.status, body1);
 
-    // Step 3 — CAPTCHA detected: extract URLs from challenge page HTML
-    const caps1 = mergeCookes(warmCookies, getCookies(r1));
-
-    // Log the full HTML so we can see the complete JS/form structure
+    // Step 3 — CAPTCHA detected.
+    // The challenge page embeds:
+    //   let uuid = "timestamp|token";           ← used as session_id cookie value
+    //   <altcha-widget challengeurl="https://api.branddb.wipo.int/captcha" ...>
+    // After solving, browser does:
+    //   1. GET https://api.branddb.wipo.int/dbinfo?token=<base64payload>
+    //   2. document.cookie = "session_id=" + uuid
+    //   3. Redirects to original URL
     console.log('[captcha] HTML (0-2000):', body1.slice(0, 2000));
 
-    // Extract the UUID embedded in the challenge page JavaScript
-    // Format: let uuid = "timestamp|token";
     const uuidMatch = body1.match(/let\s+uuid\s*=\s*["']([^"']+)["']/);
     const uuid = uuidMatch ? uuidMatch[1] : null;
     console.log('[captcha] uuid:', uuid);
+    if (!uuid) throw new Error('Could not extract UUID from CAPTCHA page');
 
+    // Challenge URL is always https://api.branddb.wipo.int/captcha (from widget attribute)
     const challengeUrl = extractChallengeUrl(body1, uuid);
     console.log('[altcha] challengeUrl:', challengeUrl);
 
-    // Step 4 — fetch the challenge JSON
-    const cRes = await fetch(challengeUrl, { headers: cookieHdr(caps1) });
-    if (!cRes.ok) throw new Error(`Challenge JSON fetch: HTTP ${cRes.status} from ${challengeUrl}`);
+    // Step 4 — fetch the challenge JSON from api.branddb.wipo.int
+    const cRes = await fetch(challengeUrl, { headers: BROWSER_HDR });
+    if (!cRes.ok) throw new Error(`Challenge fetch: HTTP ${cRes.status} from ${challengeUrl}`);
     const challenge = await cRes.json();
-    const caps2 = mergeCookes(caps1, getCookies(cRes));
     console.log('[altcha] challenge:', JSON.stringify(challenge));
 
     // Step 5 — solve SHA-256 proof of work
@@ -121,39 +124,25 @@ async function fetchWIPO(query) {
     const token    = Buffer.from(JSON.stringify(solution)).toString('base64');
     console.log('[altcha] solved: n =', solution.number);
 
-    // Step 6a — try: append solution as query param to the API URL (common in custom Altcha gateways)
-    const apiUrlWithToken = apiUrl + `&altcha=${encodeURIComponent(token)}` + (uuid ? `&uuid=${encodeURIComponent(uuid)}` : '');
-    const r2a    = await fetch(apiUrlWithToken, { signal: abort.signal, headers: cookieHdr(caps2) });
-    const body2a = await r2a.text();
-    const isHtml2a = body2a.trimStart().startsWith('<');
-    console.log('[api2a] status:', r2a.status, 'html?', isHtml2a);
+    // Step 6 — GET https://api.branddb.wipo.int/dbinfo?token=<token>
+    // WIPO's JS also sends a HashSearch header with a random GUID — required for the server to accept the token.
+    const hashSearch = crypto.randomUUID();
+    const dbinfoUrl  = `https://api.branddb.wipo.int/dbinfo?token=${encodeURIComponent(token)}`;
+    const dbRes = await fetch(dbinfoUrl, { headers: { ...BROWSER_HDR, HashSearch: hashSearch } });
+    console.log('[dbinfo] status:', dbRes.status);
 
-    if (!isHtml2a) return parseDocsJson(r2a.status, body2a);
+    // Step 7 — set session_id=<uuid> cookie and retry original API
+    // WIPO checks this cookie and cross-references with the solved token
+    const sessionCookie = `session_id=${encodeURIComponent(uuid)}`;
+    const finalCookies  = mergeCookes(warmCookies, sessionCookie);
+    console.log('[retry] cookies:', finalCookies.slice(0, 150));
 
-    // Step 6b — try: POST solution to verify endpoint → get session cookie, then retry
-    const verifyUrl = extractVerifyUrl(body1, uuid);
-    console.log('[altcha] verifyUrl:', verifyUrl);
-
-    const vRes = await fetch(verifyUrl, {
-      method: 'POST',
-      redirect: 'manual',
-      headers: {
-        ...cookieHdr(caps2),
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Accept: 'text/html,application/xhtml+xml',
-      },
-      body: new URLSearchParams({ altcha: token, ...(uuid ? { uuid } : {}) }).toString(),
-    });
-    const caps3 = mergeCookes(caps2, getCookies(vRes));
-    console.log('[verify] status:', vRes.status, 'location:', vRes.headers.get('location'), 'cookies:', caps3.slice(0, 150));
-
-    // Step 7 — retry original API with verified session cookie
-    const r2    = await fetch(apiUrl, { signal: abort.signal, headers: cookieHdr(caps3) });
+    const r2    = await fetch(apiUrl, { signal: abort.signal, headers: cookieHdr(finalCookies) });
     const body2 = await r2.text();
     const isHtml2 = body2.trimStart().startsWith('<');
     console.log('[api2] status:', r2.status, 'html?', isHtml2);
 
-    if (isHtml2) throw new Error(`Still HTML after all attempts. HTML (0-1500): ${body2.slice(0, 1500)}`);
+    if (isHtml2) throw new Error(`Still HTML after CAPTCHA solve. HTML (0-600): ${body2.slice(0, 600)}`);
     return parseDocsJson(r2.status, body2);
 
   } finally {
