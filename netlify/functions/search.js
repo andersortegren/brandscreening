@@ -1,10 +1,9 @@
 // Brand Name Check — Trademark search across US (USPTO), EU (EUIPO), and Sweden (PRV).
-// Uses direct public APIs instead of WIPO Global Brand Database (which requires a private API key).
+// Uses direct public APIs. Discovers correct endpoints from each app's JS bundle if needed.
 
 const LIVE_KEYWORDS = [
   'registered', 'live', 'pending', 'published', 'filed', 'active',
   'application received', 'under examination', 'opposition', 'accepted',
-  '009', '018', '025', // Some offices encode live status as numeric codes
 ];
 
 const OFFICES = {
@@ -55,27 +54,55 @@ exports.handler = async (event) => {
   return { statusCode: 200, headers: CORS, body: JSON.stringify(result) };
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// EUIPO eSearch API — covers EU/EM trademark registrations
-// ─────────────────────────────────────────────────────────────────────────────
+// EUIPO eSearch API
 async function fetchEUIPO(query) {
-  const params = new URLSearchParams({ queryLang: 'en', pageSize: '100', query });
-  const url = `https://euipo.europa.eu/eSearch/api/v1/trademarks/advanced?${params}`;
-  console.log('[euipo] fetching:', url.slice(0, 100));
+  const jsonHdr = {
+    Accept: 'application/json',
+    'User-Agent': UA,
+    Origin: 'https://euipo.europa.eu',
+    Referer: 'https://euipo.europa.eu/eSearch/',
+  };
 
-  const r = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': UA } });
-  const body = await r.text();
-  console.log('[euipo] status:', r.status, 'body (0-500):', body.slice(0, 500));
+  // Try known URL variants
+  const candidates = [
+    `https://euipo.europa.eu/eSearch/api/v1/trademarks?queryLang=en&pageSize=50&query=${encodeURIComponent(query)}`,
+    `https://euipo.europa.eu/eSearch/api/v1/trademark?queryLang=en&pageSize=50&query=${encodeURIComponent(query)}`,
+    `https://euipo.europa.eu/api/v1/trademarks?queryLang=en&pageSize=50&query=${encodeURIComponent(query)}`,
+  ];
 
-  if (!r.ok) throw new Error(`EUIPO HTTP ${r.status}: ${body.slice(0, 150)}`);
+  for (const url of candidates) {
+    const r = await fetch(url, { headers: jsonHdr });
+    const body = await r.text();
+    const isHtml = body.trimStart().startsWith('<') || body.includes('<!DOCTYPE') || body.includes('It works!');
+    console.log('[euipo] try:', url.slice(40), '->', r.status, 'html?', isHtml, body.slice(0, 100));
+    if (r.ok && !isHtml) return parseEUIPO(JSON.parse(body));
+  }
 
-  const data = JSON.parse(body);
-  console.log('[euipo] top-level keys:', Object.keys(data).join(','));
+  // Discover API URL from EUIPO eSearch homepage JS bundles
+  const homeRes  = await fetch('https://euipo.europa.eu/eSearch/', { headers: { Accept: 'text/html', 'User-Agent': UA } });
+  const homeHtml = await homeRes.text();
+  const scripts  = [...homeHtml.matchAll(/src="([^"]*\.js[^"]*)"/g)].map(m => m[1]);
+  console.log('[euipo] home scripts:', scripts.slice(0, 6).join(' | '));
 
-  // EUIPO response shape TBD — log to discover field names
+  for (const src of scripts.slice(0, 5)) {
+    const jsUrl = src.startsWith('http') ? src : 'https://euipo.europa.eu' + src;
+    try {
+      const jsRes  = await fetch(jsUrl, { headers: { 'User-Agent': UA } });
+      const jsText = await jsRes.text();
+      const refs   = [...new Set([
+        ...[...jsText.matchAll(/["'`]((?:https?:\/\/[^"'`\s,)]*)?\/[^"'`\s,)]*trademark[^"'`\s,)]*)/gi)].map(m => m[1]),
+      ])].slice(0, 10);
+      if (refs.length) { console.log('[euipo] paths in bundle:', refs.join('\n')); break; }
+    } catch { /* continue */ }
+  }
+
+  throw new Error('EUIPO: no working endpoint found — check [euipo] logs for discovered paths');
+}
+
+function parseEUIPO(data) {
+  console.log('[euipo] keys:', Object.keys(data).join(','));
   const items = data.trademarks || data.items || data.results || data.data || [];
-  console.log('[euipo] item count:', items.length, 'first item keys:', items[0] ? Object.keys(items[0]).join(',') : 'none');
-
+  console.log('[euipo] count:', items.length, 'first keys:', items[0] ? Object.keys(items[0]).join(',') : 'none');
   return items.map(t => ({
     name:       t.tmName || t.trademarkName || t.wordMark || t.name || t.markVerbal || '',
     holder:     t.holderName || t.ownerName || t.applicantName ||
@@ -89,30 +116,56 @@ async function fetchEUIPO(query) {
   }));
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// USPTO Open Data API — covers US trademark registrations
-// ─────────────────────────────────────────────────────────────────────────────
+// USPTO TrademarkSearch API
 async function fetchUSPTO(query) {
-  // USPTO Open Data Portal API
-  const params = new URLSearchParams({ term: query, start: '0', rows: '100' });
-  const url = `https://developer.uspto.gov/ibd-api/v1/trademark/search?${params}`;
-  console.log('[uspto] fetching:', url.slice(0, 100));
+  const jsonHdr = {
+    Accept: 'application/json',
+    'User-Agent': UA,
+    Origin: 'https://tmsearch.uspto.gov',
+    Referer: 'https://tmsearch.uspto.gov/',
+  };
 
-  const r = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': UA } });
-  const body = await r.text();
-  const isHtml = body.trimStart().startsWith('<');
-  console.log('[uspto] status:', r.status, 'html?', isHtml, 'body (0-500):', body.slice(0, 500));
+  const candidates = [
+    `https://tmsearch.uspto.gov/search/search-information?searchInput=${encodeURIComponent(query)}&searchOption1=KW`,
+    `https://tmsearch.uspto.gov/api/v1/search?q=${encodeURIComponent(query)}&rows=100`,
+    `https://tmsearch.uspto.gov/api/v1/trademark/search?q=${encodeURIComponent(query)}&rows=100`,
+  ];
 
-  if (!r.ok || isHtml) throw new Error(`USPTO HTTP ${r.status} (html: ${isHtml}): ${body.slice(0, 150)}`);
+  for (const url of candidates) {
+    const r    = await fetch(url, { headers: jsonHdr });
+    const body = await r.text();
+    const isHtml = body.trimStart().startsWith('<');
+    console.log('[uspto] try:', url.slice(35), '->', r.status, 'html?', isHtml, body.slice(0, 100));
+    if (r.ok && !isHtml) return parseUSPTO(JSON.parse(body));
+  }
 
-  const data = JSON.parse(body);
-  console.log('[uspto] top-level keys:', Object.keys(data).join(','));
+  // Discover from homepage
+  const homeRes  = await fetch('https://tmsearch.uspto.gov/', { headers: { Accept: 'text/html', 'User-Agent': UA } });
+  const homeHtml = await homeRes.text();
+  const scripts  = [...homeHtml.matchAll(/src="([^"]*\.js[^"]*)"/g)].map(m => m[1]);
+  console.log('[uspto] home scripts:', scripts.slice(0, 6).join(' | '));
 
-  const items = data.trademarks || data.marks || data.results || data.body?.hits?.hits || [];
-  console.log('[uspto] item count:', items.length, 'first item keys:', items[0] ? Object.keys(items[0]).join(',') : 'none');
+  for (const src of scripts.slice(0, 5)) {
+    const jsUrl = src.startsWith('http') ? src : 'https://tmsearch.uspto.gov' + src;
+    try {
+      const jsRes  = await fetch(jsUrl, { headers: { 'User-Agent': UA } });
+      const jsText = await jsRes.text();
+      const refs   = [...new Set([
+        ...[...jsText.matchAll(/["'`]((?:https?:\/\/[^"'`\s,)]*)?\/[^"'`\s,)]*(?:search|trademark)[^"'`\s,)]*)/gi)].map(m => m[1]),
+      ])].slice(0, 10);
+      if (refs.length) { console.log('[uspto] paths in bundle:', refs.join('\n')); break; }
+    } catch { /* continue */ }
+  }
 
+  throw new Error('USPTO: no working endpoint found — check [uspto] logs for discovered paths');
+}
+
+function parseUSPTO(data) {
+  console.log('[uspto] keys:', Object.keys(data).join(','));
+  const items = data.marks || data.trademarks || data.results || data.hits?.hits || [];
+  console.log('[uspto] count:', items.length, 'first keys:', items[0] ? Object.keys(items[0]).join(',') : 'none');
   return items.map(t => ({
-    name:       t.wordMark || t.markText || t.text || t.serialNumber || '',
+    name:       t.wordMark || t.markText || t.text || '',
     holder:     t.ownerName || t.holderName || t.applicantName || '',
     status:     t.statusCode || t.statusDescription || t.status || '',
     appNumber:  t.serialNumber || t.registrationNumber || t.appNumber || '',
@@ -122,24 +175,16 @@ async function fetchUSPTO(query) {
   }));
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sweden (PRV) — via WIPO Global Brand Database SE filter
-// Falls back silently; users are directed to verify at PRV directly.
-// ─────────────────────────────────────────────────────────────────────────────
+// Sweden (PRV) — empty for now; users verify directly at PRV
 async function fetchPRV(query) {
-  // WIPO GBD has some SE marks but requires auth we can't get.
-  // Return empty; the note on the SE card directs to PRV directly.
   return [];
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Risk assessment
-// ─────────────────────────────────────────────────────────────────────────────
 function buildOfficeResult(marks, query) {
   const q    = query.toLowerCase().trim();
   const live = marks.filter(m => LIVE_KEYWORDS.some(k => m.status.toLowerCase().includes(k)));
   const exact = live.some(m => m.name.toLowerCase() === q);
-
   return {
     risk: exact ? 'red' : live.length > 0 ? 'yellow' : 'green',
     totalMatches: marks.length,
@@ -148,9 +193,6 @@ function buildOfficeResult(marks, query) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
 function arrToStr(v) {
   if (Array.isArray(v)) return v.join(', ');
   return v ? String(v) : '';
