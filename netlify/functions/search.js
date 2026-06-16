@@ -206,9 +206,122 @@ function parseEUIPO(data) {
   }));
 }
 
-// Sweden (PRV) - no public API; users verify directly at PRV
+// Sweden (PRV) - scrapes tc.prv.se JSF search form
 async function fetchPRV(query) {
-  return [];
+  const BASE    = 'https://tc.prv.se/VarumarkesDbWeb';
+  const SEARCH  = `${BASE}/faces/searchBasic.xhtml?lang=EN`;
+  const headers = {
+    'User-Agent': UA,
+    Accept:       'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+  };
+
+  // Step 1: GET search page to collect ViewState + session cookie + form field names
+  const getRes = await fetch(SEARCH, { headers });
+  if (!getRes.ok) throw new Error(`PRV GET ${getRes.status}`);
+
+  const html    = await getRes.text();
+  const cookies = getRes.headers.get('set-cookie') || '';
+  const cookie  = cookies.split(';')[0];  // grab first cookie (JSESSIONID)
+
+  // Extract ViewState
+  const vsMatch = html.match(/name="javax\.faces\.ViewState"[^>]*value="([^"]+)"/);
+  if (!vsMatch) {
+    console.log('[prv] no ViewState found — page head:', html.slice(0, 300));
+    throw new Error('PRV: could not find ViewState in search form');
+  }
+  const viewState = vsMatch[1];
+
+  // Find the form id (e.g. <form id="j_idt42" ...>)
+  const formIdMatch = html.match(/<form[^>]+id="([^"]+)"[^>]*method="post"/i);
+  const formId      = formIdMatch ? formIdMatch[1] : '';
+
+  // Find the text input for word mark search (look for input with type=text near "word" or "mark")
+  // JSF field names follow pattern "formId:fieldId"
+  const inputMatches = [...html.matchAll(/<input[^>]+type="text"[^>]*name="([^"]+)"/gi)];
+  console.log('[prv] text inputs:', inputMatches.map(m => m[1]).join(', '));
+
+  // Prefer a field whose name contains "word" or "mark" or "name"; fall back to first text input
+  let searchField = inputMatches.find(m =>
+    /word|mark|name|term|query|search/i.test(m[1])
+  )?.[1] || inputMatches[0]?.[1];
+
+  if (!searchField) {
+    // Also try textarea
+    const taMatch = html.match(/<textarea[^>]+name="([^"]+)"/i);
+    searchField   = taMatch?.[1];
+  }
+
+  console.log('[prv] ViewState found, formId:', formId, 'searchField:', searchField);
+
+  if (!searchField) throw new Error('PRV: could not identify search input field');
+
+  // Step 2: POST the search
+  const postBody = new URLSearchParams({
+    [formId]:                            formId,
+    [searchField]:                       query,
+    'javax.faces.ViewState':             viewState,
+    'javax.faces.partial.ajax':          'false',
+  });
+
+  // Add submit button (JSF often requires the button name in the POST)
+  const btnMatch = html.match(/<input[^>]+type="submit"[^>]*name="([^"]+)"/i)
+                || html.match(/<button[^>]+name="([^"]+)"[^>]*type="submit"/i);
+  if (btnMatch) postBody.set(btnMatch[1], btnMatch[1]);
+
+  const postRes = await fetch(SEARCH, {
+    method:  'POST',
+    headers: {
+      ...headers,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Cookie:         cookie,
+      Referer:        SEARCH,
+    },
+    body: postBody.toString(),
+  });
+
+  const resultHtml = await postRes.text();
+  console.log('[prv] POST status:', postRes.status, 'result length:', resultHtml.length);
+  console.log('[prv] result snippet:', resultHtml.slice(0, 400));
+
+  return parsePRV(resultHtml, query);
+}
+
+function parsePRV(html, query) {
+  // PRV results are typically in a table; extract rows
+  const marks = [];
+  // Match table rows with trademark data
+  const rowMatches = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)];
+
+  for (const row of rowMatches) {
+    const cells = [...row[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)]
+      .map(c => c[1].replace(/<[^>]+>/g, '').trim());
+    if (cells.length < 2) continue;
+
+    // Heuristic: row contains something matching the query or looks like a trademark record
+    const rowText = cells.join(' ').toLowerCase();
+    if (!rowText.includes(query.toLowerCase()) && !rowText.match(/\d{4}/)) continue;
+
+    // Try to identify columns: mark name, holder, status, app number, classes
+    // PRV table order is typically: appNumber, markName, holder, status, classes
+    const appNum = cells.find(c => /^\d{6,}$/.test(c.trim())) || '';
+    const name   = cells.find(c => c.toUpperCase() === c && c.length > 1 && !/^\d+$/.test(c)) || cells[1] || '';
+    const status = cells.find(c => /registr|ansökan|cancelled|pending|valid|förfall/i.test(c)) || '';
+
+    if (!name) continue;
+    marks.push({
+      name,
+      holder:     '',
+      status:     status || 'unknown',
+      appNumber:  appNum,
+      filingDate: '',
+      classes:    '',
+      office:     'SE',
+    });
+  }
+
+  console.log('[prv] parsed marks:', marks.length);
+  return marks;
 }
 
 // Risk assessment
