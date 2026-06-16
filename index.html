@@ -531,6 +531,7 @@
 <footer>
   <span class="footer-bold">Bold</span>
   <span>Not legal advice &mdash; always consult a trademark attorney before filing</span>
+  <span id="versionBadge" style="font-family:monospace;font-size:11px;color:#aaa"></span>
 </footer>
 
 <script>
@@ -652,6 +653,12 @@
     const cls = live ? 's-live' : pending ? 's-pending' : 's-dead';
     return `<span class="status-chip ${cls}">${x(s)}</span>`;
   }
+
+  // Load version badge from build-time generated file
+  fetch('/version.json').then(r => r.json()).then(v => {
+    const el = document.getElementById('versionBadge');
+    if (el) el.textContent = `${v.commit} · ${new Date(v.built).toLocaleString('sv-SE', {timeZone:'Europe/Stockholm',hour12:false}).slice(0,16)}`;
+  }).catch(() => {});
 
   function x(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

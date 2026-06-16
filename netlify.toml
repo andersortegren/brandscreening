@@ -1,6 +1,7 @@
 [build]
+  command   = "node -e \"const fs=require('fs');fs.writeFileSync('version.json',JSON.stringify({deploy:process.env.DEPLOY_ID||'local',commit:(process.env.COMMIT_REF||'dev').slice(0,7),built:new Date().toISOString(),context:process.env.CONTEXT||'local'}))\""
   functions = "netlify/functions"
-  publish = "."
+  publish   = "."
 
 [functions]
   node_bundler = "esbuild"

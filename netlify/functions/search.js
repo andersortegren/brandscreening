@@ -1,11 +1,12 @@
 // Searches WIPO Global Brand Database for US, EU (EM), SE offices.
-// WIPO uses Altcha proof-of-work CAPTCHA for automated requests.
-// This function detects the challenge, solves the SHA-256 PoW, and retries.
+// WIPO uses an Altcha proof-of-work CAPTCHA gateway.
+// Flow: prewarm session → API call → if CAPTCHA, solve PoW → POST to verify endpoint → retry API with cookie.
 
 const crypto = require('crypto');
 
-const WIPO_SEARCH = 'https://branddb.wipo.int/branddb/api/v1/search';
 const WIPO_BASE   = 'https://branddb.wipo.int';
+const WIPO_SEARCH = `${WIPO_BASE}/branddb/api/v1/search`;
+const WIPO_HOME   = `${WIPO_BASE}/branddb/en/`;
 
 const LIVE_KEYWORDS = [
   'registered', 'live', 'pending', 'published', 'filed', 'active',
@@ -38,8 +39,7 @@ exports.handler = async (event) => {
     const result = { query: q, offices: {} };
 
     for (const [code, meta] of Object.entries(OFFICES)) {
-      const officeDocs = docs.filter(d =>
-        (d.office || d.tmOffice || '').toUpperCase() === code);
+      const officeDocs = docs.filter(d => (d.office || d.tmOffice || '').toUpperCase() === code);
       result.offices[code] = { ...meta, ...buildOfficeResult(officeDocs, q) };
     }
     result.offices.SE.note = 'WIPO may not include all Swedish national marks — verify at PRV.';
@@ -53,14 +53,22 @@ exports.handler = async (event) => {
 };
 
 // ---------------------------------------------------------------------------
-// WIPO fetch — handles Altcha PoW CAPTCHA transparently
+// WIPO fetch with Altcha CAPTCHA gateway handling
+//
+// Real browser flow:
+//  1. Visit page → CAPTCHA challenge page returned (no cookie yet)
+//  2. Widget finds challengeurl, fetches challenge JSON
+//  3. Widget solves SHA-256 PoW
+//  4. Widget POSTs solution to a verify endpoint → receives session cookie
+//  5. Original request retried WITH that cookie → real JSON returned
 // ---------------------------------------------------------------------------
+
 const BROWSER_HDR = {
   Accept: 'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.9',
   'Cache-Control': 'no-cache',
-  Origin:  'https://branddb.wipo.int',
-  Referer: 'https://branddb.wipo.int/branddb/en/',
+  Origin:  WIPO_BASE,
+  Referer: WIPO_HOME,
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'sec-fetch-dest': 'empty',
   'sec-fetch-mode': 'cors',
@@ -68,79 +76,140 @@ const BROWSER_HDR = {
 };
 
 async function fetchWIPO(query) {
-  const params = new URLSearchParams({ query, office: 'US,EM,SE', type: 'brandName', rows: '100', start: '0' });
-  const url = `${WIPO_SEARCH}?${params}`;
-
-  const abort = new AbortController();
-  const t = setTimeout(() => abort.abort('timeout'), 25000);
+  const params  = new URLSearchParams({ query, office: 'US,EM,SE', type: 'brandName', rows: '100', start: '0' });
+  const apiUrl  = `${WIPO_SEARCH}?${params}`;
+  const abort   = new AbortController();
+  const timer   = setTimeout(() => abort.abort('timeout'), 28000);
 
   try {
-    // ---- Attempt 1: direct ----
-    const r1    = await fetch(url, { signal: abort.signal, headers: BROWSER_HDR });
-    const body1 = await r1.text();   // read body ONCE — content-type header is unreliable
-    const cookieStr = extractSetCookie(r1);
+    // Step 1 — prewarm: visit homepage to pick up any initial session cookies
+    const warmCookies = await prewarmSession();
+    console.log('[warm] cookies:', warmCookies.slice(0, 80));
 
-    console.log('[wipo] status:', r1.status, '| ct:', r1.headers.get('content-type'), '| body[0..30]:', body1.slice(0, 30));
+    // Step 2 — first API attempt (may get CAPTCHA page)
+    const r1    = await fetch(apiUrl, { signal: abort.signal, headers: cookieHdr(warmCookies) });
+    const body1 = await r1.text();
+    const isHtml1 = body1.trimStart().startsWith('<');
+    console.log('[api1] status:', r1.status, 'html?', isHtml1, 'ct:', r1.headers.get('content-type'));
 
-    // Detect HTML by body content, not Content-Type (WIPO omits it for CAPTCHA pages)
-    const isHtml = body1.trimStart().startsWith('<');
+    if (!isHtml1) return parseDocsJson(r1.status, body1);
 
-    if (!isHtml) {
-      if (!r1.ok) throw new Error(`WIPO HTTP ${r1.status}: ${body1.slice(0, 200)}`);
-      try { return JSON.parse(body1)?.response?.docs || []; }
-      catch { throw new Error(`Non-JSON (${r1.status}): ${body1.slice(0, 300)}`); }
-    }
+    // Step 3 — CAPTCHA detected: extract URLs from challenge page HTML
+    const caps1 = mergeCookes(warmCookies, getCookies(r1));
+    const challengeUrl = extractChallengeUrl(body1);
+    const verifyUrl    = extractVerifyUrl(body1);
+    console.log('[altcha] challengeUrl:', challengeUrl, ' | verifyUrl:', verifyUrl);
+    // Log more of the HTML for debugging if needed
+    console.log('[altcha] HTML snippet (0-600):', body1.slice(0, 600));
 
-    // ---- CAPTCHA page detected — solve Altcha PoW ----
-    const html = body1;
-
-    // Find challenge URL in the HTML
-    const challengeUrl = findChallengeUrl(html);
-    console.log('[altcha] challenge URL:', challengeUrl);
-
-    // Fetch the challenge JSON
-    const cRes = await fetch(challengeUrl, { headers: { ...BROWSER_HDR, Cookie: cookieStr } });
-    if (!cRes.ok) throw new Error(`Challenge fetch failed: HTTP ${cRes.status}`);
+    // Step 4 — fetch the challenge JSON
+    const cRes = await fetch(challengeUrl, { headers: cookieHdr(caps1) });
+    if (!cRes.ok) throw new Error(`Challenge JSON fetch failed: HTTP ${cRes.status}`);
     const challenge = await cRes.json();
+    const caps2 = mergeCookes(caps1, getCookies(cRes));
     console.log('[altcha] challenge:', JSON.stringify(challenge));
 
-    // Solve proof-of-work
+    // Step 5 — solve SHA-256 proof of work
     const solution = solveAltcha(challenge);
-    const token = Buffer.from(JSON.stringify(solution)).toString('base64');
-    console.log(`[altcha] solved in ${solution.number} iterations`);
+    const token    = Buffer.from(JSON.stringify(solution)).toString('base64');
+    console.log('[altcha] solved: n =', solution.number);
 
-    // ---- Attempt 2: with solution ----
-    const r2    = await fetch(url, {
-      signal: abort.signal,
-      headers: { ...BROWSER_HDR, Authorization: `Altcha ${token}`, Cookie: cookieStr },
+    // Step 6 — POST solution to verification endpoint → get session cookie
+    const vRes = await fetch(verifyUrl, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: {
+        ...cookieHdr(caps2),
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      body: `altcha=${encodeURIComponent(token)}`,
     });
-    const body2 = await r2.text();
-    console.log('[wipo] attempt2 status:', r2.status, '| body[0..30]:', body2.slice(0, 30));
+    const caps3 = mergeCookes(caps2, getCookies(vRes));
+    console.log('[verify] status:', vRes.status, 'cookies after:', caps3.slice(0, 120));
 
-    if (body2.trimStart().startsWith('<')) {
-      throw new Error('Still HTML after CAPTCHA solve: ' + body2.slice(0, 300));
-    }
-    if (!r2.ok) throw new Error(`WIPO HTTP ${r2.status}: ${body2.slice(0, 200)}`);
-    try { return JSON.parse(body2)?.response?.docs || []; }
-    catch { throw new Error(`Non-JSON after solve (${r2.status}): ${body2.slice(0, 300)}`); }
+    // Step 7 — retry original API with verified session cookie
+    const r2    = await fetch(apiUrl, { signal: abort.signal, headers: cookieHdr(caps3) });
+    const body2 = await r2.text();
+    const isHtml2 = body2.trimStart().startsWith('<');
+    console.log('[api2] status:', r2.status, 'html?', isHtml2);
+
+    if (isHtml2) throw new Error(`Still HTML after verify (status ${r2.status}). Snippet: ${body2.slice(0, 600)}`);
+    return parseDocsJson(r2.status, body2);
 
   } finally {
-    clearTimeout(t);
+    clearTimeout(timer);
   }
 }
 
-function findChallengeUrl(html) {
-  // <altcha-widget challengeurl="/path"> or data variants
+async function prewarmSession() {
+  try {
+    const r = await fetch(WIPO_HOME, {
+      headers: { ...BROWSER_HDR, Accept: 'text/html,application/xhtml+xml' },
+    });
+    return getCookies(r);
+  } catch (e) {
+    console.log('[prewarm] failed:', e.message);
+    return '';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HTML parsing helpers
+// ---------------------------------------------------------------------------
+
+function extractChallengeUrl(html) {
   const m = html.match(/challenge(?:url|Url|-url)=["']([^"']+)["']/i) ||
-            html.match(/data-challenge(?:url|-url)=["']([^"']+)["']/i);
-  if (!m) throw new Error('No Altcha challenge URL in CAPTCHA page. HTML: ' + html.slice(0, 400));
+            html.match(/data-challenge(?:-url)?=["']([^"']+)["']/i);
+  if (!m) throw new Error('No Altcha challengeurl found in CAPTCHA HTML: ' + html.slice(0, 500));
   const u = m[1];
   return u.startsWith('http') ? u : WIPO_BASE + u;
 }
 
-// SHA-256 brute-force — typically solves < 50ms (n < 50 000)
+function extractVerifyUrl(html) {
+  // Check for explicit verifyurl attribute on the widget
+  const va = html.match(/verify(?:url|Url|-url)=["']([^"']+)["']/i);
+  if (va) return va[1].startsWith('http') ? va[1] : WIPO_BASE + va[1];
+
+  // Check for a <form action="...">
+  const fa = html.match(/<form[^>]+action=["']([^"'#?][^"']*?)["']/i);
+  if (fa) return fa[1].startsWith('http') ? fa[1] : WIPO_BASE + fa[1];
+
+  // Derive from challengeUrl pattern: /foo/challenge → /foo/verify
+  try {
+    const cu = extractChallengeUrl(html);
+    return cu.replace(/\/challenge(\?.*)?$/, '/verify').replace(/\?.*$/, '');
+  } catch {}
+
+  // Last resort: common Altcha middleware paths
+  return `${WIPO_BASE}/altcha-verify`;
+}
+
+// ---------------------------------------------------------------------------
+// Cookie helpers
+// ---------------------------------------------------------------------------
+
+function getCookies(res) {
+  const raw = res.headers.get('set-cookie');
+  if (!raw) return '';
+  return raw.split(/,(?=[^ ;][^=]*=)/).map(c => c.split(';')[0].trim()).filter(Boolean).join('; ');
+}
+
+function mergeCookes(a, b) {
+  const parts = [a, b].filter(Boolean);
+  return parts.join('; ').replace(/;\s*;/g, ';').trim();
+}
+
+function cookieHdr(cookieStr) {
+  return cookieStr ? { ...BROWSER_HDR, Cookie: cookieStr } : BROWSER_HDR;
+}
+
+// ---------------------------------------------------------------------------
+// Altcha SHA-256 proof-of-work solver
+// ---------------------------------------------------------------------------
+
 function solveAltcha({ algorithm = 'SHA-256', challenge, salt, signature, maxnumber = 1000000 }) {
-  if (!challenge || !salt) throw new Error('Invalid Altcha challenge: ' + JSON.stringify({ challenge, salt }));
+  if (!challenge || !salt) throw new Error('Invalid challenge: ' + JSON.stringify({ challenge, salt }));
   for (let n = 0; n <= maxnumber; n++) {
     const hash = crypto.createHash('sha256').update(`${salt}${n}`).digest('hex');
     if (hash === challenge) return { algorithm, challenge, number: n, salt, signature };
@@ -148,30 +217,22 @@ function solveAltcha({ algorithm = 'SHA-256', challenge, salt, signature, maxnum
   throw new Error(`Altcha unsolvable within ${maxnumber} iterations`);
 }
 
-function extractSetCookie(res) {
-  const raw = res.headers.get('set-cookie') || '';
-  if (!raw) return '';
-  return raw.split(/,(?=[^ ][^=]+=)/).map(c => c.split(';')[0].trim()).filter(Boolean).join('; ');
-}
+// ---------------------------------------------------------------------------
+// JSON parsing
+// ---------------------------------------------------------------------------
 
-async function parseWIPOJson(res) {
-  if (!res.ok) {
-    const t = await res.text().catch(() => '');
-    throw new Error(`WIPO HTTP ${res.status}: ${t.slice(0, 200)}`);
-  }
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); }
-  catch { throw new Error(`Non-JSON (${res.status}): ${text.slice(0, 300)}`); }
-  return data?.response?.docs || [];
+function parseDocsJson(status, text) {
+  if (status < 200 || status >= 300) throw new Error(`HTTP ${status}: ${text.slice(0, 200)}`);
+  try { return JSON.parse(text)?.response?.docs || []; }
+  catch { throw new Error(`Non-JSON (${status}): ${text.slice(0, 300)}`); }
 }
 
 // ---------------------------------------------------------------------------
 // Risk assessment
 // ---------------------------------------------------------------------------
+
 function buildOfficeResult(docs, query) {
   const q = query.toLowerCase().trim();
-
   const marks = docs.map(d => ({
     name:       pick(d, ['wordMark','tmName','brandName','markVerbal','markText','mark']),
     holder:     pickArr(d, ['holderName','holders','applicantName','applicants']),
@@ -182,7 +243,7 @@ function buildOfficeResult(docs, query) {
     office:     d.office || d.tmOffice || '',
   }));
 
-  const live = marks.filter(m => LIVE_KEYWORDS.some(k => m.status.toLowerCase().includes(k)));
+  const live  = marks.filter(m => LIVE_KEYWORDS.some(k => m.status.toLowerCase().includes(k)));
   const exact = live.some(m => m.name.toLowerCase() === q);
 
   return {
