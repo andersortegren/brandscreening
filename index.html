@@ -8,690 +8,654 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #f8f8f6;
-      --surface: #ffffff;
-      --border: #e5e5e0;
-      --text: #1a1a1a;
-      --text-muted: #6b6b6b;
-      --accent: #1a1a1a;
-      --green: #16a34a;
+      --white:  #ffffff;
+      --black:  #000000;
+      --gray-100: #f5f5f3;
+      --gray-200: #e8e8e5;
+      --gray-500: #888884;
+      --green:  #166534;
       --green-bg: #f0fdf4;
-      --green-border: #bbf7d0;
-      --yellow: #ca8a04;
-      --yellow-bg: #fefce8;
-      --yellow-border: #fde68a;
-      --red: #dc2626;
-      --red-bg: #fef2f2;
-      --red-border: #fecaca;
-      --radius: 12px;
-      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+      --yellow: #92400e;
+      --yellow-bg: #fffbeb;
+      --red:    #991b1b;
+      --red-bg: #fff1f2;
+      --radius: 8px;
     }
+
+    html { font-size: 16px; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--white);
+      color: var(--black);
       min-height: 100vh;
-      padding: 40px 20px 80px;
+      display: flex;
+      flex-direction: column;
     }
 
-    header {
-      text-align: center;
-      margin-bottom: 48px;
+    /* ── Layout ─────────────────────────────── */
+    .page {
+      flex: 1;
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 64px 40px 80px;
+      width: 100%;
     }
 
-    header h1 {
-      font-size: 28px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
+    /* ── Header ─────────────────────────────── */
+    .site-header {
+      margin-bottom: 72px;
+      padding-bottom: 32px;
+      border-bottom: 1.5px solid var(--black);
     }
 
-    header p {
-      margin-top: 8px;
-      color: var(--text-muted);
+    .site-header h1 {
+      font-size: clamp(36px, 6vw, 64px);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+
+    .site-header p {
       font-size: 15px;
+      color: var(--gray-500);
+      font-weight: 400;
     }
 
-    /* Search */
-    .search-wrap {
-      max-width: 560px;
-      margin: 0 auto 48px;
+    /* ── Search ─────────────────────────────── */
+    .search-area {
+      margin-bottom: 64px;
     }
 
     .search-row {
       display: flex;
-      gap: 10px;
+      gap: 0;
+      border: 1.5px solid var(--black);
+      border-radius: var(--radius);
+      overflow: hidden;
+      max-width: 600px;
     }
 
     .search-input {
       flex: 1;
-      height: 48px;
-      padding: 0 16px;
-      font-size: 16px;
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--surface);
-      color: var(--text);
+      height: 52px;
+      padding: 0 18px;
+      font-size: 17px;
+      font-weight: 500;
+      border: none;
+      background: var(--white);
+      color: var(--black);
       outline: none;
-      transition: border-color 0.15s;
+      font-family: inherit;
     }
 
-    .search-input:focus {
-      border-color: var(--accent);
-    }
+    .search-input::placeholder { color: var(--gray-500); font-weight: 400; }
 
     .search-btn {
-      height: 48px;
-      padding: 0 24px;
-      font-size: 15px;
-      font-weight: 600;
-      background: var(--accent);
-      color: #fff;
+      height: 52px;
+      padding: 0 28px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--black);
+      color: var(--white);
       border: none;
-      border-radius: var(--radius);
       cursor: pointer;
-      transition: opacity 0.15s;
+      font-family: inherit;
+      transition: opacity 0.12s;
       white-space: nowrap;
     }
 
-    .search-btn:hover { opacity: 0.85; }
-    .search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .search-btn:hover   { opacity: 0.8; }
+    .search-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .search-hint {
+    .search-note {
       margin-top: 10px;
-      font-size: 13px;
-      color: var(--text-muted);
-      text-align: center;
+      font-size: 12px;
+      color: var(--gray-500);
     }
 
-    /* Status cards */
+    /* ── Cards ─────────────────────────────── */
     .cards {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
-      max-width: 760px;
-      margin: 0 auto 40px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      margin-bottom: 2px;
+      background: var(--black);
+      border: 1.5px solid var(--black);
+      border-radius: var(--radius);
+      overflow: hidden;
     }
 
     .card {
-      background: var(--surface);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px 22px;
-      box-shadow: var(--shadow);
-      transition: border-color 0.2s;
+      background: var(--white);
+      padding: 28px 26px 24px;
+      position: relative;
     }
 
-    .card-header {
+    .card-jurisdiction {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 4px;
+    }
+
+    .card-office {
+      font-size: 13px;
+      color: var(--gray-500);
+      margin-bottom: 20px;
+    }
+
+    .risk-indicator {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 14px;
     }
 
-    .card-flag {
-      font-size: 22px;
-      line-height: 1;
-    }
-
-    .card-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .card-subtitle {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .traffic-light {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .light {
-      width: 18px;
-      height: 18px;
+    .risk-dot {
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
-      background: var(--border);
-      transition: background 0.3s;
+      background: var(--gray-200);
       flex-shrink: 0;
+      transition: background 0.25s;
     }
 
-    .light-label {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-muted);
+    .risk-label {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--gray-500);
+      transition: color 0.25s;
     }
-
-    /* Risk states */
-    .card.risk-green { border-color: var(--green-border); background: var(--green-bg); }
-    .card.risk-green .light { background: var(--green); }
-    .card.risk-green .light-label { color: var(--green); }
-
-    .card.risk-yellow { border-color: var(--yellow-border); background: var(--yellow-bg); }
-    .card.risk-yellow .light { background: var(--yellow); }
-    .card.risk-yellow .light-label { color: var(--yellow); }
-
-    .card.risk-red { border-color: var(--red-border); background: var(--red-bg); }
-    .card.risk-red .light { background: var(--red); }
-    .card.risk-red .light-label { color: var(--red); }
 
     .card-count {
-      margin-top: 10px;
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-
-    .card-link {
-      display: inline-block;
-      margin-top: 10px;
+      margin-top: 14px;
       font-size: 12px;
-      color: var(--accent);
-      text-decoration: none;
-      opacity: 0.7;
-    }
-    .card-link:hover { opacity: 1; text-decoration: underline; }
-
-    /* Results table */
-    .results-section {
-      max-width: 960px;
-      margin: 0 auto;
+      color: var(--gray-500);
     }
 
-    .results-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 14px;
-    }
-
-    .results-title {
-      font-size: 16px;
-      font-weight: 700;
-    }
-
-    .filter-tabs {
-      display: flex;
-      gap: 6px;
-    }
-
-    .filter-tab {
-      padding: 5px 12px;
-      font-size: 13px;
-      font-weight: 500;
-      border: 1.5px solid var(--border);
-      border-radius: 99px;
-      background: var(--surface);
-      cursor: pointer;
-      transition: all 0.15s;
-      color: var(--text-muted);
-    }
-
-    .filter-tab.active, .filter-tab:hover {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-    }
-
-    .table-wrap {
-      background: var(--surface);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      box-shadow: var(--shadow);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13.5px;
-    }
-
-    thead th {
-      padding: 11px 14px;
-      text-align: left;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      background: #fafaf8;
-      border-bottom: 1.5px solid var(--border);
-    }
-
-    tbody tr {
-      border-bottom: 1px solid var(--border);
-      transition: background 0.1s;
-    }
-
-    tbody tr:last-child { border-bottom: none; }
-    tbody tr:hover { background: #fafaf8; }
-
-    tbody td {
-      padding: 11px 14px;
-      vertical-align: top;
-      color: var(--text);
-    }
-
-    .badge {
+    .card-verify {
       display: inline-block;
-      padding: 2px 8px;
-      border-radius: 99px;
+      margin-top: 12px;
       font-size: 11px;
       font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--black);
+      text-decoration: none;
+      opacity: 0.4;
+      transition: opacity 0.12s;
     }
+    .card-verify:hover { opacity: 1; }
 
-    .badge-live { background: var(--green-bg); color: var(--green); }
-    .badge-pending { background: var(--yellow-bg); color: var(--yellow); }
-    .badge-dead { background: #f3f4f6; color: #6b7280; }
+    /* Risk states */
+    .risk-green .risk-dot   { background: #16a34a; }
+    .risk-green .risk-label { color: #166534; }
 
-    .office-pill {
-      display: inline-block;
-      padding: 1px 7px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 700;
-      background: #f3f4f6;
-      color: var(--text-muted);
-    }
+    .risk-yellow .risk-dot  { background: #d97706; }
+    .risk-yellow .risk-label { color: #92400e; }
 
-    /* State UI */
-    .state-box {
-      max-width: 560px;
-      margin: 0 auto;
-      text-align: center;
-      padding: 48px 24px;
-      color: var(--text-muted);
-    }
+    .risk-red .risk-dot    { background: #dc2626; }
+    .risk-red .risk-label  { color: #991b1b; }
 
-    .state-box.hidden { display: none; }
-
-    .spinner {
-      width: 36px;
-      height: 36px;
-      border: 3px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      margin: 0 auto 16px;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .error-icon { font-size: 32px; margin-bottom: 12px; }
-
-    .hidden { display: none !important; }
-
-    /* Legend */
+    /* ── Legend ─────────────────────────────── */
     .legend {
       display: flex;
-      gap: 20px;
-      justify-content: center;
-      margin-bottom: 32px;
+      gap: 28px;
+      margin-bottom: 48px;
       flex-wrap: wrap;
     }
 
     .legend-item {
       display: flex;
       align-items: center;
-      gap: 7px;
-      font-size: 13px;
-      color: var(--text-muted);
+      gap: 8px;
+      font-size: 12px;
+      color: var(--gray-500);
     }
 
     .legend-dot {
-      width: 12px;
-      height: 12px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
-      flex-shrink: 0;
     }
 
-    .note-banner {
-      max-width: 760px;
-      margin: -24px auto 32px;
+    /* ── SE note ─────────────────────────────── */
+    .note-bar {
       font-size: 12px;
-      color: var(--text-muted);
-      background: var(--yellow-bg);
-      border: 1px solid var(--yellow-border);
-      border-radius: 8px;
+      color: var(--gray-500);
+      background: var(--gray-100);
+      border: 1.5px solid var(--gray-200);
+      border-top: none;
+      border-radius: 0 0 var(--radius) var(--radius);
       padding: 10px 14px;
+      margin-bottom: 48px;
     }
 
-    .note-banner.hidden { display: none; }
+    .note-bar a { color: var(--black); }
 
-    @media (max-width: 540px) {
-      .filter-tabs { flex-wrap: wrap; }
-      .results-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    /* ── State boxes ─────────────────────────── */
+    .state-box {
+      padding: 64px 0;
+      text-align: center;
+      color: var(--gray-500);
+      font-size: 15px;
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 2.5px solid var(--gray-200);
+      border-top-color: var(--black);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-text {
+      font-size: 13px;
+      color: #991b1b;
+      margin-top: 8px;
+      max-width: 560px;
+      margin-left: auto;
+      margin-right: auto;
+      word-break: break-word;
+    }
+
+    /* ── Results ─────────────────────────────── */
+    .results-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .results-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .filter-tab {
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 4px;
+      background: var(--white);
+      color: var(--gray-500);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.1s;
+    }
+
+    .filter-tab:hover,
+    .filter-tab.active {
+      background: var(--black);
+      color: var(--white);
+      border-color: var(--black);
+    }
+
+    .table-wrap {
+      border: 1.5px solid var(--black);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      background: var(--gray-100);
+      border-bottom: 1.5px solid var(--gray-200);
+    }
+
+    tbody tr { border-bottom: 1px solid var(--gray-200); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--gray-100); }
+
+    tbody td {
+      padding: 11px 14px;
+      vertical-align: top;
+    }
+
+    .mark-name { font-weight: 700; }
+
+    .office-chip {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      background: var(--gray-100);
+      color: var(--gray-500);
+      border: 1px solid var(--gray-200);
+    }
+
+    .status-chip {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .s-live    { background: var(--green-bg); color: var(--green); }
+    .s-pending { background: var(--yellow-bg); color: var(--yellow); }
+    .s-dead    { background: var(--gray-100); color: var(--gray-500); }
+
+    .hidden { display: none !important; }
+
+    /* ── Footer ─────────────────────────────── */
+    footer {
+      border-top: 1.5px solid var(--black);
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--gray-500);
+    }
+
+    .footer-bold {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--black);
+    }
+
+    @media (max-width: 680px) {
+      .page { padding: 40px 20px 60px; }
+      .cards { grid-template-columns: 1fr; gap: 2px; }
+      .site-header h1 { font-size: 36px; }
+      footer { padding: 16px 20px; }
     }
   </style>
 </head>
 <body>
 
-  <header>
+<div class="page">
+
+  <!-- Header -->
+  <header class="site-header">
     <h1>Brand Name Check</h1>
-    <p>Search trademark databases across the US, EU, and Sweden</p>
+    <p>Trademark screening across US, EU, and Sweden</p>
   </header>
 
-  <div class="search-wrap">
+  <!-- Search -->
+  <div class="search-area">
     <div class="search-row">
       <input
         class="search-input"
         id="searchInput"
         type="text"
-        placeholder="Enter brand name..."
+        placeholder="Enter brand name"
         autocomplete="off"
         autocorrect="off"
         spellcheck="false"
       />
       <button class="search-btn" id="searchBtn">Check</button>
     </div>
-    <p class="search-hint">Data via WIPO Global Brand Database &middot; Not legal advice</p>
+    <p class="search-note">Data via WIPO Global Brand Database &middot; Not legal advice</p>
   </div>
 
-  <!-- Legend (shown after first search) -->
-  <div class="legend hidden" id="legend">
-    <div class="legend-item">
-      <div class="legend-dot" style="background: var(--green)"></div>
-      <span>No live marks found</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-dot" style="background: var(--yellow)"></div>
-      <span>Similar marks exist — review needed</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-dot" style="background: var(--red)"></div>
-      <span>Exact match registered</span>
-    </div>
-  </div>
-
-  <!-- Cards (hidden until search) -->
-  <div class="cards hidden" id="cards">
-    <div class="card" id="card-US">
-      <div class="card-header">
-        <span class="card-flag">🇺🇸</span>
-        <div>
-          <div class="card-title">United States</div>
-          <div class="card-subtitle">USPTO</div>
-        </div>
-      </div>
-      <div class="traffic-light">
-        <div class="light" id="light-US"></div>
-        <span class="light-label" id="label-US">—</span>
-      </div>
-      <div class="card-count" id="count-US"></div>
-      <a class="card-link" href="https://tmsearch.uspto.gov/search/" target="_blank" rel="noopener">
-        Verify at USPTO ↗
-      </a>
-    </div>
-
-    <div class="card" id="card-EM">
-      <div class="card-header">
-        <span class="card-flag">🇪🇺</span>
-        <div>
-          <div class="card-title">European Union</div>
-          <div class="card-subtitle">EUIPO</div>
-        </div>
-      </div>
-      <div class="traffic-light">
-        <div class="light" id="light-EM"></div>
-        <span class="light-label" id="label-EM">—</span>
-      </div>
-      <div class="card-count" id="count-EM"></div>
-      <a class="card-link" href="https://euipo.europa.eu/eSearch/#advanced/trademarks" target="_blank" rel="noopener">
-        Verify at EUIPO ↗
-      </a>
-    </div>
-
-    <div class="card" id="card-SE">
-      <div class="card-header">
-        <span class="card-flag">🇸🇪</span>
-        <div>
-          <div class="card-title">Sweden</div>
-          <div class="card-subtitle">PRV</div>
-        </div>
-      </div>
-      <div class="traffic-light">
-        <div class="light" id="light-SE"></div>
-        <span class="light-label" id="label-SE">—</span>
-      </div>
-      <div class="card-count" id="count-SE"></div>
-      <a class="card-link" href="https://tc.prv.se/VarumarkesDbWeb/?lang=EN" target="_blank" rel="noopener">
-        Verify at PRV ↗
-      </a>
-    </div>
-  </div>
-
-  <!-- Sweden partial coverage note -->
-  <div class="note-banner hidden" id="seNote">
-    Sweden (PRV): WIPO may not include all Swedish national marks. Always verify directly at <a href="https://tc.prv.se/VarumarkesDbWeb/?lang=EN" target="_blank" rel="noopener">PRV's database</a>.
-  </div>
-
-  <!-- Loading state -->
+  <!-- Loading -->
   <div class="state-box hidden" id="loadingState">
     <div class="spinner"></div>
     <p>Searching trademark databases&hellip;</p>
   </div>
 
-  <!-- Error state -->
+  <!-- Error -->
   <div class="state-box hidden" id="errorState">
-    <div class="error-icon">⚠️</div>
-    <p id="errorMsg">Something went wrong. Please try again.</p>
+    <p style="font-weight:700;color:#991b1b">Search failed</p>
+    <p class="error-text" id="errorMsg"></p>
   </div>
 
-  <!-- Results table -->
-  <div class="results-section hidden" id="resultsSection">
-    <div class="results-header">
-      <div class="results-title" id="resultsTitle">Results</div>
-      <div class="filter-tabs" id="filterTabs">
-        <button class="filter-tab active" data-office="ALL">All</button>
-        <button class="filter-tab" data-office="US">🇺🇸 US</button>
-        <button class="filter-tab" data-office="EM">🇪🇺 EU</button>
-        <button class="filter-tab" data-office="SE">🇸🇪 SE</button>
+  <!-- Results area (hidden until search) -->
+  <div id="resultsArea" class="hidden">
+
+    <!-- Traffic light cards -->
+    <div class="cards" id="cards">
+      <div class="card" id="card-US">
+        <div class="card-jurisdiction">United States</div>
+        <div class="card-office">USPTO</div>
+        <div class="risk-indicator">
+          <div class="risk-dot"></div>
+          <span class="risk-label" id="label-US">—</span>
+        </div>
+        <div class="card-count" id="count-US"></div>
+        <a class="card-verify" href="https://tmsearch.uspto.gov/search/" target="_blank" rel="noopener">Verify at USPTO ↗</a>
+      </div>
+
+      <div class="card" id="card-EM">
+        <div class="card-jurisdiction">European Union</div>
+        <div class="card-office">EUIPO</div>
+        <div class="risk-indicator">
+          <div class="risk-dot"></div>
+          <span class="risk-label" id="label-EM">—</span>
+        </div>
+        <div class="card-count" id="count-EM"></div>
+        <a class="card-verify" href="https://euipo.europa.eu/eSearch/#advanced/trademarks" target="_blank" rel="noopener">Verify at EUIPO ↗</a>
+      </div>
+
+      <div class="card" id="card-SE">
+        <div class="card-jurisdiction">Sweden</div>
+        <div class="card-office">PRV</div>
+        <div class="risk-indicator">
+          <div class="risk-dot"></div>
+          <span class="risk-label" id="label-SE">—</span>
+        </div>
+        <div class="card-count" id="count-SE"></div>
+        <a class="card-verify" href="https://tc.prv.se/VarumarkesDbWeb/?lang=EN" target="_blank" rel="noopener">Verify at PRV ↗</a>
       </div>
     </div>
 
-    <div class="table-wrap">
-      <table id="resultsTable">
-        <thead>
-          <tr>
-            <th>Mark</th>
-            <th>Office</th>
-            <th>Holder</th>
-            <th>Classes</th>
-            <th>Filing date</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="resultsBody"></tbody>
-      </table>
+    <!-- SE partial coverage note -->
+    <div class="note-bar">
+      Sweden (PRV): WIPO may not include all national Swedish marks. Always verify at
+      <a href="https://tc.prv.se/VarumarkesDbWeb/?lang=EN" target="_blank" rel="noopener">PRV's database</a>.
     </div>
-  </div>
 
-  <script>
-    // ---------------------------------------------------------------------------
-    // State
-    // ---------------------------------------------------------------------------
-    let allRows = [];
-    let currentFilter = 'ALL';
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#16a34a"></div>
+        <span>No live marks found</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#d97706"></div>
+        <span>Similar marks exist — review needed</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#dc2626"></div>
+        <span>Exact name registered</span>
+      </div>
+    </div>
 
-    // ---------------------------------------------------------------------------
-    // DOM refs
-    // ---------------------------------------------------------------------------
-    const searchInput = document.getElementById('searchInput');
-    const searchBtn   = document.getElementById('searchBtn');
-    const legend      = document.getElementById('legend');
-    const cards       = document.getElementById('cards');
-    const seNote      = document.getElementById('seNote');
-    const loadingState  = document.getElementById('loadingState');
-    const errorState    = document.getElementById('errorState');
-    const errorMsg      = document.getElementById('errorMsg');
-    const resultsSection = document.getElementById('resultsSection');
-    const resultsTitle   = document.getElementById('resultsTitle');
-    const resultsBody    = document.getElementById('resultsBody');
-    const filterTabs     = document.getElementById('filterTabs');
+    <!-- Results table -->
+    <div id="resultsSection">
+      <div class="results-header">
+        <div class="results-title" id="resultsTitle"></div>
+        <div class="filter-tabs" id="filterTabs">
+          <button class="filter-tab active" data-office="ALL">All</button>
+          <button class="filter-tab" data-office="US">US</button>
+          <button class="filter-tab" data-office="EM">EU</button>
+          <button class="filter-tab" data-office="SE">SE</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Mark</th>
+              <th>Office</th>
+              <th>Holder</th>
+              <th>Classes</th>
+              <th>Filing date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </div>
 
-    // ---------------------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------------------
-    searchBtn.addEventListener('click', runSearch);
-    searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') runSearch(); });
+  </div><!-- /resultsArea -->
 
-    filterTabs.querySelectorAll('.filter-tab').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        filterTabs.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentFilter = btn.dataset.office;
-        renderTable();
-      });
+</div><!-- /page -->
+
+<footer>
+  <span class="footer-bold">Bold</span>
+  <span>Not legal advice &mdash; always consult a trademark attorney before filing</span>
+</footer>
+
+<script>
+  let allRows = [];
+  let activeFilter = 'ALL';
+
+  const $ = id => document.getElementById(id);
+
+  $('searchBtn').addEventListener('click', run);
+  $('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+
+  $('filterTabs').querySelectorAll('.filter-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $('filterTabs').querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeFilter = btn.dataset.office;
+      renderTable();
+    });
+  });
+
+  async function run() {
+    const q = $('searchInput').value.trim();
+    if (!q || q.length < 2) { $('searchInput').focus(); return; }
+
+    setState('loading');
+
+    try {
+      const res  = await fetch(`/.netlify/functions/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        const detail = data.detail ? ` — ${data.detail}` : '';
+        throw new Error((data.error || 'Unknown error') + detail);
+      }
+
+      setState('results', data);
+    } catch (err) {
+      setState('error', err.message);
+    }
+  }
+
+  function setState(mode, payload) {
+    $('searchBtn').disabled = mode === 'loading';
+    $('searchBtn').textContent = mode === 'loading' ? 'Checking…' : 'Check';
+
+    $('loadingState').classList.add('hidden');
+    $('errorState').classList.add('hidden');
+    $('resultsArea').classList.add('hidden');
+
+    if (mode === 'loading') {
+      $('loadingState').classList.remove('hidden');
+    } else if (mode === 'error') {
+      $('errorMsg').textContent = payload;
+      $('errorState').classList.remove('hidden');
+    } else if (mode === 'results') {
+      renderResults(payload);
+      $('resultsArea').classList.remove('hidden');
+    }
+  }
+
+  const RISK_LABELS = { green: 'No live marks found', yellow: 'Similar marks exist', red: 'Exact match found' };
+
+  function renderResults(data) {
+    ['US','EM','SE'].forEach(code => {
+      const o = data.offices[code];
+      if (!o) return;
+      const card = $(`card-${code}`);
+      card.className = `card risk-${o.risk}`;
+      $(`label-${code}`).textContent = RISK_LABELS[o.risk] || o.risk;
+      $(`count-${code}`).textContent = o.totalMatches === 0
+        ? 'No matches' : `${o.liveCount} live · ${o.totalMatches} total`;
     });
 
-    // ---------------------------------------------------------------------------
-    // Search
-    // ---------------------------------------------------------------------------
-    async function runSearch() {
-      const q = searchInput.value.trim();
-      if (!q || q.length < 2) {
-        searchInput.focus();
-        return;
-      }
+    allRows = [];
+    ['US','EM','SE'].forEach(code => {
+      const o = data.offices[code];
+      if (o?.marks) allRows.push(...o.marks.map(m => ({ ...m, _office: code })));
+    });
 
-      // Reset UI
-      setLoading(true);
-      hideAll();
-      loadingState.classList.remove('hidden');
+    $('resultsTitle').textContent =
+      `${allRows.length} mark${allRows.length !== 1 ? 's' : ''} found for "${data.query}"`;
 
-      try {
-        const res = await fetch(`/.netlify/functions/search?q=${encodeURIComponent(q)}`);
-        const data = await res.json();
+    activeFilter = 'ALL';
+    $('filterTabs').querySelectorAll('.filter-tab').forEach(b =>
+      b.classList.toggle('active', b.dataset.office === 'ALL'));
 
-        if (!res.ok) {
-          // Include detail for debugging (shown in small text below error)
-          const msg = data.error || 'Unknown error';
-          const detail = data.detail ? ` — ${data.detail}` : '';
-          throw new Error(msg + detail);
-        }
+    renderTable();
+  }
 
-        setLoading(false);
-        showResults(data);
-      } catch (err) {
-        setLoading(false);
-        showError(err.message);
-      }
+  function renderTable() {
+    const rows = activeFilter === 'ALL'
+      ? allRows
+      : allRows.filter(r => (r._office || r.office) === activeFilter);
+
+    if (rows.length === 0) {
+      $('resultsBody').innerHTML =
+        `<tr><td colspan="6" style="text-align:center;color:var(--gray-500);padding:40px 14px">
+          No marks found for this jurisdiction.
+        </td></tr>`;
+      return;
     }
 
-    // ---------------------------------------------------------------------------
-    // Render
-    // ---------------------------------------------------------------------------
-    function showResults(data) {
-      loadingState.classList.add('hidden');
-      legend.classList.remove('hidden');
-      cards.classList.remove('hidden');
-      seNote.classList.remove('hidden');
+    $('resultsBody').innerHTML = rows.map(r => `
+      <tr>
+        <td class="mark-name">${x(r.name || '—')}</td>
+        <td><span class="office-chip">${x(r._office || r.office || '—')}</span></td>
+        <td style="max-width:220px;word-break:break-word">${x(r.holder || '—')}</td>
+        <td>${x(r.classes || '—')}</td>
+        <td style="white-space:nowrap">${x(r.filingDate || '—')}</td>
+        <td>${statusChip(r.status)}</td>
+      </tr>`).join('');
+  }
 
-      // Update cards
-      const officeMap = { US: 'US', EM: 'EM', SE: 'SE' };
-      const riskLabels = {
-        green: 'No live marks found',
-        yellow: 'Similar marks exist',
-        red: 'Exact match found',
-      };
+  function statusChip(s) {
+    const sl = (s || '').toLowerCase();
+    if (!s) return `<span class="status-chip s-dead">Unknown</span>`;
+    const live    = ['registered','live','active'].some(k => sl.includes(k));
+    const pending = ['pending','filed','published','examination','opposition','application'].some(k => sl.includes(k));
+    const cls = live ? 's-live' : pending ? 's-pending' : 's-dead';
+    return `<span class="status-chip ${cls}">${x(s)}</span>`;
+  }
 
-      for (const [code] of Object.entries(officeMap)) {
-        const office = data.offices[code];
-        if (!office) continue;
-
-        const card = document.getElementById(`card-${code}`);
-        const lightEl = document.getElementById(`light-${code}`);
-        const labelEl = document.getElementById(`label-${code}`);
-        const countEl = document.getElementById(`count-${code}`);
-
-        card.className = `card risk-${office.risk}`;
-        labelEl.textContent = riskLabels[office.risk] || office.risk;
-        countEl.textContent = office.totalMatches === 0
-          ? 'No matches'
-          : `${office.liveCount} live · ${office.totalMatches} total`;
-      }
-
-      // Build table data
-      allRows = [];
-      for (const code of ['US', 'EM', 'SE']) {
-        const office = data.offices[code];
-        if (office?.marks) {
-          allRows.push(...office.marks.map(m => ({ ...m, _office: code })));
-        }
-      }
-
-      resultsTitle.textContent = `${allRows.length} mark${allRows.length !== 1 ? 's' : ''} found for "${data.query}"`;
-      currentFilter = 'ALL';
-      filterTabs.querySelectorAll('.filter-tab').forEach(b => {
-        b.classList.toggle('active', b.dataset.office === 'ALL');
-      });
-
-      renderTable();
-      resultsSection.classList.remove('hidden');
-    }
-
-    function renderTable() {
-      const rows = currentFilter === 'ALL'
-        ? allRows
-        : allRows.filter(r => r._office === currentFilter || r.office === currentFilter);
-
-      if (rows.length === 0) {
-        resultsBody.innerHTML = `
-          <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px">
-            No trademarks found for this jurisdiction.
-          </td></tr>`;
-        return;
-      }
-
-      resultsBody.innerHTML = rows.map(row => `
-        <tr>
-          <td style="font-weight:600;max-width:160px;word-break:break-word">${esc(row.name || '—')}</td>
-          <td><span class="office-pill">${esc(row._office || row.office || '—')}</span></td>
-          <td style="max-width:200px;word-break:break-word">${esc(row.holder || '—')}</td>
-          <td>${esc(row.classes || '—')}</td>
-          <td style="white-space:nowrap">${esc(row.filingDate || '—')}</td>
-          <td>${statusBadge(row.status)}</td>
-        </tr>
-      `).join('');
-    }
-
-    function statusBadge(status) {
-      const s = (status || '').toLowerCase();
-      if (!status) return '<span class="badge badge-dead">Unknown</span>';
-      const isLive = ['registered', 'live', 'active'].some(kw => s.includes(kw));
-      const isPending = ['pending', 'filed', 'published', 'examination', 'opposition', 'application'].some(kw => s.includes(kw));
-      const cls = isLive ? 'badge-live' : isPending ? 'badge-pending' : 'badge-dead';
-      return `<span class="badge ${cls}">${esc(status)}</span>`;
-    }
-
-    function showError(msg) {
-      loadingState.classList.add('hidden');
-      errorMsg.textContent = msg;
-      errorState.classList.remove('hidden');
-    }
-
-    function hideAll() {
-      [legend, cards, seNote, loadingState, errorState, resultsSection].forEach(el => {
-        el.classList.add('hidden');
-      });
-    }
-
-    function setLoading(on) {
-      searchBtn.disabled = on;
-      searchBtn.textContent = on ? 'Checking…' : 'Check';
-    }
-
-    function esc(str) {
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    }
-  </script>
+  function x(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
 </body>
 </html>
