@@ -76,14 +76,23 @@ async function fetchWIPO(query) {
 
   try {
     // ---- Attempt 1: direct ----
-    const r1 = await fetch(url, { signal: abort.signal, headers: BROWSER_HDR });
-    const ct1 = r1.headers.get('content-type') || '';
+    const r1    = await fetch(url, { signal: abort.signal, headers: BROWSER_HDR });
+    const body1 = await r1.text();   // read body ONCE — content-type header is unreliable
+    const cookieStr = extractSetCookie(r1);
 
-    if (!ct1.includes('text/html')) return parseWIPOJson(r1);
+    console.log('[wipo] status:', r1.status, '| ct:', r1.headers.get('content-type'), '| body[0..30]:', body1.slice(0, 30));
+
+    // Detect HTML by body content, not Content-Type (WIPO omits it for CAPTCHA pages)
+    const isHtml = body1.trimStart().startsWith('<');
+
+    if (!isHtml) {
+      if (!r1.ok) throw new Error(`WIPO HTTP ${r1.status}: ${body1.slice(0, 200)}`);
+      try { return JSON.parse(body1)?.response?.docs || []; }
+      catch { throw new Error(`Non-JSON (${r1.status}): ${body1.slice(0, 300)}`); }
+    }
 
     // ---- CAPTCHA page detected — solve Altcha PoW ----
-    const html = await r1.text();
-    const cookieStr = extractSetCookie(r1);
+    const html = body1;
 
     // Find challenge URL in the HTML
     const challengeUrl = findChallengeUrl(html);
@@ -101,16 +110,19 @@ async function fetchWIPO(query) {
     console.log(`[altcha] solved in ${solution.number} iterations`);
 
     // ---- Attempt 2: with solution ----
-    const r2 = await fetch(url, {
+    const r2    = await fetch(url, {
       signal: abort.signal,
       headers: { ...BROWSER_HDR, Authorization: `Altcha ${token}`, Cookie: cookieStr },
     });
-    const ct2 = r2.headers.get('content-type') || '';
-    if (ct2.includes('text/html')) {
-      const h2 = await r2.text();
-      throw new Error('Still HTML after CAPTCHA solve: ' + h2.slice(0, 300));
+    const body2 = await r2.text();
+    console.log('[wipo] attempt2 status:', r2.status, '| body[0..30]:', body2.slice(0, 30));
+
+    if (body2.trimStart().startsWith('<')) {
+      throw new Error('Still HTML after CAPTCHA solve: ' + body2.slice(0, 300));
     }
-    return parseWIPOJson(r2);
+    if (!r2.ok) throw new Error(`WIPO HTTP ${r2.status}: ${body2.slice(0, 200)}`);
+    try { return JSON.parse(body2)?.response?.docs || []; }
+    catch { throw new Error(`Non-JSON after solve (${r2.status}): ${body2.slice(0, 300)}`); }
 
   } finally {
     clearTimeout(t);
