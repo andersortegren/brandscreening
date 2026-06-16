@@ -75,6 +75,15 @@ const BROWSER_HDR = {
   'sec-fetch-site': 'same-origin',
 };
 
+// Minimal headers for the authenticated API call — strips browser navigation signals
+// that can trigger Angular SSR to return the app shell instead of JSON
+const API_HDR = {
+  Accept: 'application/json',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'X-Requested-With': 'XMLHttpRequest',
+};
+
 async function fetchWIPO(query) {
   const params  = new URLSearchParams({ query, office: 'US,EM,SE', type: 'brandName', rows: '100', start: '0' });
   const apiUrl  = `${WIPO_SEARCH}?${params}`;
@@ -132,18 +141,33 @@ async function fetchWIPO(query) {
     console.log('[dbinfo] status:', dbRes.status);
 
     // Step 7 — set session_id=<uuid> cookie and retry original API
-    // WIPO checks this cookie and cross-references with the solved token
+    // Use API_HDR (no sec-fetch-*, no Origin/Referer) so the server returns JSON
+    // instead of Angular SSR app shell
     const sessionCookie = `session_id=${encodeURIComponent(uuid)}`;
     const finalCookies  = mergeCookes(warmCookies, sessionCookie);
     console.log('[retry] cookies:', finalCookies.slice(0, 150));
 
-    const r2    = await fetch(apiUrl, { signal: abort.signal, headers: cookieHdr(finalCookies) });
-    const body2 = await r2.text();
-    const isHtml2 = body2.trimStart().startsWith('<');
-    console.log('[api2] status:', r2.status, 'html?', isHtml2);
+    const apiHdrWithCookie = { ...API_HDR, Cookie: finalCookies };
 
-    if (isHtml2) throw new Error(`Still HTML after CAPTCHA solve. HTML (0-600): ${body2.slice(0, 600)}`);
-    return parseDocsJson(r2.status, body2);
+    // Attempt A — original branddb.wipo.int URL with clean API headers
+    const r2a   = await fetch(apiUrl, { signal: abort.signal, headers: apiHdrWithCookie });
+    const b2a   = await r2a.text();
+    const html2a = b2a.trimStart().startsWith('<');
+    console.log('[api2a] status:', r2a.status, 'html?', html2a, 'snippet:', b2a.slice(0, 120));
+
+    if (!html2a) return parseDocsJson(r2a.status, b2a);
+
+    // Attempt B — api.branddb.wipo.int subdomain (where captcha/dbinfo live)
+    const apiSubUrl = apiUrl.replace('https://branddb.wipo.int', 'https://api.branddb.wipo.int');
+    console.log('[api2b] trying:', apiSubUrl.slice(0, 80));
+    const r2b   = await fetch(apiSubUrl, { signal: abort.signal, headers: apiHdrWithCookie });
+    const b2b   = await r2b.text();
+    const html2b = b2b.trimStart().startsWith('<');
+    console.log('[api2b] status:', r2b.status, 'html?', html2b, 'snippet:', b2b.slice(0, 120));
+
+    if (!html2b) return parseDocsJson(r2b.status, b2b);
+
+    throw new Error(`Still HTML after all attempts. HTML (0-600): ${b2a.slice(0, 600)}`);
 
   } finally {
     clearTimeout(timer);
