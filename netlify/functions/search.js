@@ -8,12 +8,14 @@
 const LIVE_KEYWORDS = [
   'registered', 'live', 'pending', 'published', 'filed', 'active',
   'application received', 'under examination', 'opposition', 'accepted',
+  // Swedish PRV status terms (via TMview)
+  'registrerat', 'ingivet', 'ansökt', 'invändning', 'publicerat',
 ];
 
 const OFFICES = {
   US: { name: 'United States (USPTO)', verifyUrl: 'https://tmsearch.uspto.gov/' },
   EM: { name: 'European Union (EUIPO)', verifyUrl: 'https://euipo.europa.eu/eSearch/#advanced/trademarks' },
-  SE: { name: 'Sweden (PRV)',           verifyUrl: 'https://tc.prv.se/VarumarkesDbWeb/?lang=EN' },
+  SE: { name: 'Sweden (PRV)',           verifyUrl: 'https://search.prv.se/#/trademark' },
 };
 
 const CORS = {
@@ -206,122 +208,68 @@ function parseEUIPO(data) {
   }));
 }
 
-// Sweden (PRV) - scrapes tc.prv.se JSF search form
+// Sweden (PRV) via TMview - searches SE office marks at tmdn.org/tmview
+// TMview aggregates all European national trademark offices including PRV Sweden.
 async function fetchPRV(query) {
-  const BASE    = 'https://tc.prv.se/VarumarkesDbWeb';
-  const SEARCH  = `${BASE}/faces/searchBasic.xhtml?lang=EN`;
-  const headers = {
-    'User-Agent': UA,
-    Accept:       'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9',
-  };
-
-  // Step 1: GET search page to collect ViewState + session cookie + form field names
-  const getRes = await fetch(SEARCH, { headers });
-  if (!getRes.ok) throw new Error(`PRV GET ${getRes.status}`);
-
-  const html    = await getRes.text();
-  const cookies = getRes.headers.get('set-cookie') || '';
-  const cookie  = cookies.split(';')[0];  // grab first cookie (JSESSIONID)
-
-  // Extract ViewState
-  const vsMatch = html.match(/name="javax\.faces\.ViewState"[^>]*value="([^"]+)"/);
-  if (!vsMatch) {
-    console.log('[prv] no ViewState found — page head:', html.slice(0, 300));
-    throw new Error('PRV: could not find ViewState in search form');
-  }
-  const viewState = vsMatch[1];
-
-  // Find the form id (e.g. <form id="j_idt42" ...>)
-  const formIdMatch = html.match(/<form[^>]+id="([^"]+)"[^>]*method="post"/i);
-  const formId      = formIdMatch ? formIdMatch[1] : '';
-
-  // Find the text input for word mark search (look for input with type=text near "word" or "mark")
-  // JSF field names follow pattern "formId:fieldId"
-  const inputMatches = [...html.matchAll(/<input[^>]+type="text"[^>]*name="([^"]+)"/gi)];
-  console.log('[prv] text inputs:', inputMatches.map(m => m[1]).join(', '));
-
-  // Prefer a field whose name contains "word" or "mark" or "name"; fall back to first text input
-  let searchField = inputMatches.find(m =>
-    /word|mark|name|term|query|search/i.test(m[1])
-  )?.[1] || inputMatches[0]?.[1];
-
-  if (!searchField) {
-    // Also try textarea
-    const taMatch = html.match(/<textarea[^>]+name="([^"]+)"/i);
-    searchField   = taMatch?.[1];
-  }
-
-  console.log('[prv] ViewState found, formId:', formId, 'searchField:', searchField);
-
-  if (!searchField) throw new Error('PRV: could not identify search input field');
-
-  // Step 2: POST the search
-  const postBody = new URLSearchParams({
-    [formId]:                            formId,
-    [searchField]:                       query,
-    'javax.faces.ViewState':             viewState,
-    'javax.faces.partial.ajax':          'false',
+  // TMview jqGrid JSON endpoint - filters to SE (PRV) office only
+  const url = 'https://www.tmdn.org/tmview/search-tmv?' + new URLSearchParams({
+    rows:                  '50',
+    page:                  '1',
+    sidx:                  'tm',
+    sord:                  'asc',
+    q:                     `tm:${query}`,
+    fq:                    '[]',
+    pageSize:              '50',
+    providerList:          'SE',
+    selectedRowRefNumber:  'null',
+    expandedOffices:       'null',
   });
 
-  // Add submit button (JSF often requires the button name in the POST)
-  const btnMatch = html.match(/<input[^>]+type="submit"[^>]*name="([^"]+)"/i)
-                || html.match(/<button[^>]+name="([^"]+)"[^>]*type="submit"/i);
-  if (btnMatch) postBody.set(btnMatch[1], btnMatch[1]);
-
-  const postRes = await fetch(SEARCH, {
-    method:  'POST',
+  console.log('[prv/tmview] GET', url);
+  const r = await fetch(url, {
     headers: {
-      ...headers,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Cookie:         cookie,
-      Referer:        SEARCH,
+      'User-Agent': UA,
+      Accept:       'application/json, text/javascript, */*',
+      Referer:      'https://www.tmdn.org/tmview/welcome',
     },
-    body: postBody.toString(),
   });
 
-  const resultHtml = await postRes.text();
-  console.log('[prv] POST status:', postRes.status, 'result length:', resultHtml.length);
-  console.log('[prv] result snippet:', resultHtml.slice(0, 400));
+  const body = await r.text();
+  console.log('[prv/tmview] status:', r.status, 'body[:300]:', body.slice(0, 300));
 
-  return parsePRV(resultHtml, query);
+  if (!r.ok) throw new Error(`TMview HTTP ${r.status}: ${body.slice(0, 120)}`);
+  if (!body || body.trim() === '') throw new Error('TMview returned empty response');
+
+  const data = JSON.parse(body);
+  return parseTMview(data, query);
 }
 
-function parsePRV(html, query) {
-  // PRV results are typically in a table; extract rows
-  const marks = [];
-  // Match table rows with trademark data
-  const rowMatches = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)];
+function parseTMview(data, query) {
+  // TMview returns jqGrid format: { total, page, records, rows: [{ id, cell: [...] }] }
+  // cell order (approx): ST13/ref, office, wordmark, status, appDate, expiryDate, niceClasses, applicant
+  console.log('[prv/tmview] total:', data.total, 'records:', data.records, 'rows:', data.rows?.length);
 
-  for (const row of rowMatches) {
-    const cells = [...row[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)]
-      .map(c => c[1].replace(/<[^>]+>/g, '').trim());
-    if (cells.length < 2) continue;
+  const stripHtml = s => String(s || '').replace(/<[^>]+>/g, '').trim();
 
-    // Heuristic: row contains something matching the query or looks like a trademark record
-    const rowText = cells.join(' ').toLowerCase();
-    if (!rowText.includes(query.toLowerCase()) && !rowText.match(/\d{4}/)) continue;
-
-    // Try to identify columns: mark name, holder, status, app number, classes
-    // PRV table order is typically: appNumber, markName, holder, status, classes
-    const appNum = cells.find(c => /^\d{6,}$/.test(c.trim())) || '';
-    const name   = cells.find(c => c.toUpperCase() === c && c.length > 1 && !/^\d+$/.test(c)) || cells[1] || '';
-    const status = cells.find(c => /registr|ansökan|cancelled|pending|valid|förfall/i.test(c)) || '';
-
-    if (!name) continue;
-    marks.push({
-      name,
-      holder:     '',
-      status:     status || 'unknown',
-      appNumber:  appNum,
-      filingDate: '',
-      classes:    '',
+  const rows = data.rows || [];
+  return rows.map(row => {
+    const c = (row.cell || []).map(stripHtml);
+    // TMview cell order (typical): [ST13/ref, office, wordmark, status, appDate, expiryDate, niceClasses, applicant]
+    const name      = c[2] || c[1] || row.id || '';
+    const status    = c[3] || '';
+    const appDate   = c[4] || '';
+    const classes   = c[6] || '';
+    const holder    = c[7] || '';
+    return {
+      name:       name,
+      holder:     holder,
+      status:     status,
+      appNumber:  String(row.id || '').split('-').pop() || '',
+      filingDate: fmtDate(appDate),
+      classes:    classes,
       office:     'SE',
-    });
-  }
-
-  console.log('[prv] parsed marks:', marks.length);
-  return marks;
+    };
+  }).filter(m => m.name);
 }
 
 // Risk assessment
