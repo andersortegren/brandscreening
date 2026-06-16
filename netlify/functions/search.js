@@ -112,6 +112,8 @@ async function getEUIPOToken() {
   const clientId     = process.env.EUIPO_CLIENT_ID;
   const clientSecret = process.env.EUIPO_CLIENT_SECRET;
   const sandbox      = process.env.EUIPO_SANDBOX === 'true'; // default: production
+  console.log('[euipo] EUIPO_SANDBOX env:', JSON.stringify(process.env.EUIPO_SANDBOX));
+  console.log('[euipo] PARSE_API_KEY set:', !!process.env.PARSE_API_KEY, 'len:', (process.env.PARSE_API_KEY||'').length);
 
   if (!clientId || !clientSecret) {
     throw new Error(
