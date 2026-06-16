@@ -78,14 +78,25 @@ async function fetchUSPTO(query) {
     );
   }
 
-  const url = `https://markerapi.com/api/v2/trademarks/trademark/${encodeURIComponent(query)}` +
-              `/status/all/start/1/username/${encodeURIComponent(username)}` +
-              `/password/${encodeURIComponent(password)}`;
+  // MarkerAPI docs use dev.markerapi.com in their PHP examples; try both
+  const hosts = ['markerapi.com', 'dev.markerapi.com'];
+  let data = null;
 
-  const r = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': UA } });
-  if (!r.ok) throw new Error(`MarkerAPI HTTP ${r.status}`);
+  for (const host of hosts) {
+    const url = `https://${host}/api/v2/trademarks/trademark/${encodeURIComponent(query)}` +
+                `/status/all/start/1/username/${encodeURIComponent(username)}` +
+                `/password/${encodeURIComponent(password)}`;
+    try {
+      const r = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': UA } });
+      const body = await r.text();
+      console.log(`[uspto] ${host} -> ${r.status} body[:120]:`, body.slice(0, 120));
+      if (r.ok) { data = JSON.parse(body); break; }
+    } catch (e) {
+      console.error(`[uspto] ${host} fetch error:`, e.message, e.cause?.message || '');
+    }
+  }
 
-  const data = await r.json();
+  if (!data) throw new Error('MarkerAPI unreachable — check [uspto] logs for details');
   console.log('[uspto] count:', data.count, 'keys:', Object.keys(data).join(','));
   if (data.trademarks?.[0]) console.log('[uspto] first keys:', Object.keys(data.trademarks[0]).join(','));
 
