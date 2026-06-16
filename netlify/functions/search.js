@@ -157,36 +157,18 @@ async function fetchWIPO(query) {
     }
     console.log('[dbinfo] apiToken?', !!apiToken, apiToken ? apiToken.slice(0, 40) : 'none');
 
-    // Step 7 — discover the real search API URL from WIPO's Angular JS bundle
-    // The bundle contains hardcoded api.branddb.wipo.int URLs — we read them to find the search path.
+    // Step 7 — try /dbinfo with search params.
+    // /dbinfo already works with token auth and returns Solr format.
+    // If it's a general Solr endpoint, adding query params should return docs.
     const sessionCookie = `session_id=${encodeURIComponent(uuid)}`;
     const allCookies    = mergeCookes(mergeCookes(warmCookies, sessionCookie), dbCookies);
+    const dbinfoSearchUrl = `https://api.branddb.wipo.int/dbinfo?token=${encodeURIComponent(token)}&${params}`;
+    const dsRes  = await fetch(dbinfoSearchUrl, { signal: abort.signal, headers: { ...BROWSER_HDR, HashSearch: hashSearch } });
+    const dsBody = await dsRes.text();
+    console.log('[dbinfo-search] status:', dsRes.status, 'body (0-400):', dsBody.slice(0, 400));
+    if (dsRes.ok && !dsBody.trimStart().startsWith('<')) return parseDocsJson(dsRes.status, dsBody);
 
-    try {
-      const homeRes  = await fetch(WIPO_HOME, { headers: BROWSER_HDR });
-      const homeHtml = await homeRes.text();
-      // Find main JS bundle (Angular names it main.*.js or similar)
-      const scriptMatches = [...homeHtml.matchAll(/["']([^"']*(?:main|chunk)[^"']*\.js[^"']*)["']/g)].map(m => m[1]);
-      console.log('[discover] script candidates:', scriptMatches.slice(0, 4).join(' | '));
-
-      for (const src of scriptMatches.slice(0, 3)) {
-        const scriptUrl = src.startsWith('http') ? src : WIPO_BASE + src;
-        const scriptRes = await fetch(scriptUrl, { headers: BROWSER_HDR });
-        if (!scriptRes.ok) continue;
-        const scriptText = await scriptRes.text();
-        // Find all api.branddb.wipo.int URL references in the bundle
-        const apiRefs = [...new Set(
-          [...scriptText.matchAll(/["'`](https?:\/\/api\.branddb\.wipo\.int[^"'`\s,)]*)/g)].map(m => m[1])
-        )];
-        console.log(`[discover] ${src.slice(-40)} → api refs: ${apiRefs.join(' | ').slice(0, 400)}`);
-        if (apiRefs.length > 0) break;
-      }
-    } catch (e) {
-      console.log('[discover] error:', e.message);
-    }
-
-    // While we investigate, also try branddb.wipo.int with same-origin XHR headers
-    // (Angular HTTP client uses same-origin mode when calling its own backend)
+    // Step 8 — same-origin XHR on main domain (Angular client-side search pattern)
     const sameOriginHdr = {
       Accept: 'application/json, text/plain, */*',
       'Accept-Language': 'en-US,en;q=0.9',
@@ -198,13 +180,13 @@ async function fetchWIPO(query) {
       'sec-fetch-mode': 'same-origin',
       'sec-fetch-site': 'same-origin',
     };
-    const rSOrig = await fetch(apiUrl, { signal: abort.signal, headers: sameOriginHdr });
-    const bSOrig = await rSOrig.text();
-    const htmlSOrig = bSOrig.trimStart().startsWith('<');
-    console.log('[sameOrigin] branddb.wipo.int →', rSOrig.status, 'html?', htmlSOrig, bSOrig.slice(0, 150));
-    if (!htmlSOrig && rSOrig.ok) return parseDocsJson(rSOrig.status, bSOrig);
+    const rSO  = await fetch(apiUrl, { signal: abort.signal, headers: sameOriginHdr });
+    const bSO  = await rSO.text();
+    const htmlSO = bSO.trimStart().startsWith('<');
+    console.log('[sameOrigin] →', rSO.status, 'html?', htmlSO, bSO.slice(0, 200));
+    if (!htmlSO && rSO.ok) return parseDocsJson(rSO.status, bSO);
 
-    throw new Error(`All attempts failed. Check [discover] logs for correct API URL.`);
+    throw new Error(`All attempts failed. dbinfo-search: ${dsBody.slice(0, 200)}`);
 
   } finally {
     clearTimeout(timer);
