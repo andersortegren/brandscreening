@@ -134,41 +134,51 @@ async function fetchWIPO(query) {
     console.log('[altcha] solved: n =', solution.number);
 
     // Step 6 — GET https://api.branddb.wipo.int/dbinfo?token=<token>
-    // WIPO's JS sends a HashSearch header with a GUID — required for the server to accept the token.
-    // The response body likely contains the API key / JWT needed for subsequent calls.
+    // WIPO's browser JS stores the HashSearch GUID in localStorage after this call.
+    // The same GUID is used for all subsequent API calls — it's the "Authentication Token"
+    // that AWS API Gateway's Lambda authorizer checks for.
     const hashSearch = crypto.randomUUID();
     const dbinfoUrl  = `https://api.branddb.wipo.int/dbinfo?token=${encodeURIComponent(token)}`;
     const dbRes  = await fetch(dbinfoUrl, { headers: { ...BROWSER_HDR, HashSearch: hashSearch } });
     const dbBody = await dbRes.text();
+    const dbCookies = getCookies(dbRes);
     console.log('[dbinfo] status:', dbRes.status, 'body:', dbBody.slice(0, 300));
+    console.log('[dbinfo] cookies:', dbCookies.slice(0, 200));
 
-    // Parse the dbinfo body — it may be a plain token string or JSON with an access_token / apiKey field
+    // Extract any apiToken from the dbinfo response body
     let apiToken = null;
     try {
       const dbJson = JSON.parse(dbBody);
       console.log('[dbinfo] json keys:', Object.keys(dbJson).join(','));
-      apiToken = dbJson.token || dbJson.apiKey || dbJson.api_key || dbJson.access_token || dbJson.key || null;
+      apiToken = dbJson.token || dbJson.apiKey || dbJson.api_key || dbJson.access_token || dbJson.key || dbJson.jwt || null;
     } catch {
       const trimmed = dbBody.trim();
-      if (trimmed && !trimmed.startsWith('<')) apiToken = trimmed;
+      if (trimmed && !trimmed.startsWith('<') && !trimmed.startsWith('{')) apiToken = trimmed;
     }
-    console.log('[dbinfo] apiToken found?', !!apiToken, apiToken ? apiToken.slice(0, 40) : 'none');
+    console.log('[dbinfo] apiToken?', !!apiToken, apiToken ? apiToken.slice(0, 40) : 'none');
 
-    // Step 7 — retry the API on api. subdomain with token + session cookie
-    const sessionCookie    = `session_id=${encodeURIComponent(uuid)}`;
-    const finalCookies     = mergeCookes(warmCookies, sessionCookie);
-    const apiSubUrl        = apiUrl.replace('https://branddb.wipo.int', 'https://api.branddb.wipo.int');
-    const authHdr          = apiToken ? { Authorization: `Bearer ${apiToken}`, 'x-api-key': apiToken } : {};
-    const apiHdrWithAuth   = { ...API_HDR, Cookie: finalCookies, ...authHdr };
+    // Step 7 — retry search API with HashSearch + session cookie + any apiToken
+    const sessionCookie = `session_id=${encodeURIComponent(uuid)}`;
+    const allCookies    = mergeCookes(mergeCookes(warmCookies, sessionCookie), dbCookies);
+    const extraAuth     = apiToken ? { Authorization: `Bearer ${apiToken}`, 'x-api-key': apiToken } : {};
+    const searchHdr     = { ...API_HDR, Cookie: allCookies, HashSearch: hashSearch, ...extraAuth };
 
-    console.log('[api2] url:', apiSubUrl.slice(0, 80));
-    const r2   = await fetch(apiSubUrl, { signal: abort.signal, headers: apiHdrWithAuth });
-    const b2   = await r2.text();
-    const html2 = b2.trimStart().startsWith('<');
-    console.log('[api2] status:', r2.status, 'html?', html2, 'snippet:', b2.slice(0, 200));
+    // Try paths: the api. subdomain may use a shorter path (no /branddb prefix)
+    const urlsToTry = [
+      apiUrl.replace('https://branddb.wipo.int', 'https://api.branddb.wipo.int'),
+      `https://api.branddb.wipo.int/search?${params}`,
+      `https://api.branddb.wipo.int/v1/search?${params}`,
+    ];
 
-    if (!html2) return parseDocsJson(r2.status, b2);
-    throw new Error(`Still HTML after all attempts. Snippet: ${b2.slice(0, 400)}`);
+    for (const url of urlsToTry) {
+      const r = await fetch(url, { signal: abort.signal, headers: searchHdr });
+      const b = await r.text();
+      const isHtml = b.trimStart().startsWith('<');
+      console.log(`[try] ${url.replace('https://api.branddb.wipo.int', '')} → ${r.status} html?${isHtml} body:${b.slice(0, 120)}`);
+      if (!isHtml && r.ok) return parseDocsJson(r.status, b);
+    }
+
+    throw new Error(`All API attempts failed. Check logs for [try] lines.`);
 
   } finally {
     clearTimeout(timer);
