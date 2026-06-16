@@ -157,24 +157,25 @@ async function fetchWIPO(query) {
     }
     console.log('[dbinfo] apiToken?', !!apiToken, apiToken ? apiToken.slice(0, 40) : 'none');
 
-    // Step 7 — retry search API with HashSearch + session cookie + any apiToken
+    // Step 7 — retry search API with Altcha token as query param (same pattern as /dbinfo?token=...)
+    // dbinfo uses ?token=<base64> and it works — search likely uses the same auth pattern.
     const sessionCookie = `session_id=${encodeURIComponent(uuid)}`;
     const allCookies    = mergeCookes(mergeCookes(warmCookies, sessionCookie), dbCookies);
-    const extraAuth     = apiToken ? { Authorization: `Bearer ${apiToken}`, 'x-api-key': apiToken } : {};
-    const searchHdr     = { ...API_HDR, Cookie: allCookies, HashSearch: hashSearch, ...extraAuth };
+    const searchHdr     = { ...API_HDR, Cookie: allCookies };
+    const tokenParam    = `&token=${encodeURIComponent(token)}`;
 
-    // Try paths: the api. subdomain may use a shorter path (no /branddb prefix)
+    // Try paths with token as query param
     const urlsToTry = [
-      apiUrl.replace('https://branddb.wipo.int', 'https://api.branddb.wipo.int'),
-      `https://api.branddb.wipo.int/search?${params}`,
-      `https://api.branddb.wipo.int/v1/search?${params}`,
+      `https://api.branddb.wipo.int/branddb/api/v1/search?${params}${tokenParam}`,
+      `https://api.branddb.wipo.int/search?${params}${tokenParam}`,
+      `https://api.branddb.wipo.int/v1/search?${params}${tokenParam}`,
     ];
 
     for (const url of urlsToTry) {
       const r = await fetch(url, { signal: abort.signal, headers: searchHdr });
       const b = await r.text();
       const isHtml = b.trimStart().startsWith('<');
-      console.log(`[try] ${url.replace('https://api.branddb.wipo.int', '')} → ${r.status} html?${isHtml} body:${b.slice(0, 120)}`);
+      console.log(`[try] ${url.replace('https://api.branddb.wipo.int', '').slice(0,60)} → ${r.status} html?${isHtml} body:${b.slice(0, 150)}`);
       if (!isHtml && r.ok) return parseDocsJson(r.status, b);
     }
 
