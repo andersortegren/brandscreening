@@ -112,8 +112,6 @@ async function getEUIPOToken() {
   const clientId     = process.env.EUIPO_CLIENT_ID;
   const clientSecret = process.env.EUIPO_CLIENT_SECRET;
   const sandbox      = process.env.EUIPO_SANDBOX === 'true'; // default: production
-  console.log('[euipo] EUIPO_SANDBOX env:', JSON.stringify(process.env.EUIPO_SANDBOX));
-  console.log('[euipo] PARSE_API_KEY set:', !!process.env.PARSE_API_KEY, 'len:', (process.env.PARSE_API_KEY||'').length);
 
   if (!clientId || !clientSecret) {
     throw new Error(
@@ -233,6 +231,7 @@ function arrToStr(v) {
 
 function fmtDate(r) {
   if (!r) return '';
-  const s = String(r).replace(/-/g, '');
-  return s.length === 8 ? `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}` : String(r);
+  // Handle ISO datetime strings like "2018-03-30T00:00:00"
+  const s = String(r).split('T')[0].replace(/-/g, '');
+  return s.length === 8 ? `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}` : String(r).split('T')[0];
 }
