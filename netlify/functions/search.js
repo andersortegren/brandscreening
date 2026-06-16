@@ -1,5 +1,6 @@
-// Brand Name Check — Trademark search across US (USPTO), EU (EUIPO), and Sweden (PRV).
-// Uses direct public APIs. Discovers correct endpoints from each app's JS bundle if needed.
+// Brand Name Check — Trademark search across US (USPTO via MarkerAPI), EU (EUIPO), and Sweden (PRV).
+// Requires env vars: MARKER_USERNAME + MARKER_PASSWORD (USPTO) and EUIPO_CLIENT_ID + EUIPO_CLIENT_SECRET (EU).
+// Set EUIPO_SANDBOX=false to use production EUIPO API (default: sandbox).
 
 const LIVE_KEYWORDS = [
   'registered', 'live', 'pending', 'published', 'filed', 'active',
@@ -20,13 +21,19 @@ const CORS = {
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
+// EUIPO OAuth2 token cache — persists across warm function invocations
+let euipoToken = null;
+let euipoTokenExpires = 0;
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS };
 
   const q = (event.queryStringParameters?.q || '').trim();
   if (!q || q.length < 2) {
-    return { statusCode: 400, headers: CORS,
-      body: JSON.stringify({ error: 'Enter a brand name (at least 2 characters).' }) };
+    return {
+      statusCode: 400, headers: CORS,
+      body: JSON.stringify({ error: 'Enter a brand name (at least 2 characters).' }),
+    };
   }
 
   const [euResult, usResult, seResult] = await Promise.allSettled([
@@ -44,7 +51,11 @@ exports.handler = async (event) => {
     } else {
       console.error(`[${code}] failed:`, settled.reason?.message);
       result.offices[code] = {
-        ...meta, risk: 'unknown', totalMatches: 0, liveCount: 0, marks: [],
+        ...meta,
+        risk: 'unknown',
+        totalMatches: 0,
+        liveCount: 0,
+        marks: [],
         error: settled.reason?.message || 'Search failed',
       };
     }
@@ -54,61 +65,140 @@ exports.handler = async (event) => {
   return { statusCode: 200, headers: CORS, body: JSON.stringify(result) };
 };
 
-// EUIPO eSearch API
+// ─── USPTO via MarkerAPI ───────────────────────────────────────────────────────
+
+async function fetchUSPTO(query) {
+  const username = process.env.MARKER_USERNAME;
+  const password = process.env.MARKER_PASSWORD;
+
+  if (!username || !password) {
+    throw new Error(
+      'USPTO not configured — add MARKER_USERNAME + MARKER_PASSWORD in Netlify env vars ' +
+      '(free tier at markerapi.com)'
+    );
+  }
+
+  const url = `https://markerapi.com/api/v2/trademarks/trademark/${encodeURIComponent(query)}` +
+              `/status/all/start/1/username/${encodeURIComponent(username)}` +
+              `/password/${encodeURIComponent(password)}`;
+
+  const r = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': UA } });
+  if (!r.ok) throw new Error(`MarkerAPI HTTP ${r.status}`);
+
+  const data = await r.json();
+  console.log('[uspto] count:', data.count, 'keys:', Object.keys(data).join(','));
+  if (data.trademarks?.[0]) console.log('[uspto] first keys:', Object.keys(data.trademarks[0]).join(','));
+
+  return (data.trademarks || []).map(t => ({
+    name:       t.wordmark || t.keyword || '',
+    holder:     typeof t.owner === 'object' ? (t.owner?.name || '') : (t.owner || ''),
+    status:     t.statusdescription || t.status || t.statuscode || '',
+    appNumber:  t.serialnumber || t.registrationnumber || '',
+    filingDate: fmtDate(t.filingdate || t.applicationdate || ''),
+    classes:    arrToStr(t.code || t.niceclass || ''),
+    office:     'US',
+  }));
+}
+
+// ─── EU via EUIPO OAuth2 API ───────────────────────────────────────────────────
+
+async function getEUIPOToken() {
+  if (euipoToken && Date.now() < euipoTokenExpires) return euipoToken;
+
+  const clientId     = process.env.EUIPO_CLIENT_ID;
+  const clientSecret = process.env.EUIPO_CLIENT_SECRET;
+  const sandbox      = process.env.EUIPO_SANDBOX !== 'false'; // default: sandbox
+
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      'EUIPO not configured — register at dev.euipo.europa.eu and add ' +
+      'EUIPO_CLIENT_ID + EUIPO_CLIENT_SECRET in Netlify env vars'
+    );
+  }
+
+  const tokenUrl = sandbox
+    ? 'https://auth-sandbox.euipo.europa.eu/oidc/accessToken'
+    : 'https://auth.euipo.europa.eu/oidc/accessToken';
+
+  const body = new URLSearchParams({
+    client_id:     clientId,
+    client_secret: clientSecret,
+    grant_type:    'client_credentials',
+    scope:         'uid',
+  });
+
+  const r = await fetch(tokenUrl, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
+    body:    body.toString(),
+  });
+
+  if (!r.ok) {
+    const err = await r.text();
+    throw new Error(`EUIPO token error ${r.status}: ${err.slice(0, 120)}`);
+  }
+
+  const data        = await r.json();
+  euipoToken        = data.access_token;
+  euipoTokenExpires = Date.now() + Math.max(0, (data.expires_in || 28800) - 300) * 1000;
+  console.log('[euipo] token obtained, expires_in:', data.expires_in);
+  return euipoToken;
+}
+
 async function fetchEUIPO(query) {
-  const jsonHdr = {
-    Accept: 'application/json',
-    'User-Agent': UA,
-    Origin: 'https://euipo.europa.eu',
-    Referer: 'https://euipo.europa.eu/eSearch/',
-  };
-
-  // Try known URL variants
-  const candidates = [
-    `https://euipo.europa.eu/eSearch/api/v1/trademarks?queryLang=en&pageSize=50&query=${encodeURIComponent(query)}`,
-    `https://euipo.europa.eu/eSearch/api/v1/trademark?queryLang=en&pageSize=50&query=${encodeURIComponent(query)}`,
-    `https://euipo.europa.eu/api/v1/trademarks?queryLang=en&pageSize=50&query=${encodeURIComponent(query)}`,
-  ];
-
-  for (const url of candidates) {
-    const r = await fetch(url, { headers: jsonHdr });
-    const body = await r.text();
-    const isHtml = body.trimStart().startsWith('<') || body.includes('<!DOCTYPE') || body.includes('It works!');
-    console.log('[euipo] try:', url.slice(40), '->', r.status, 'html?', isHtml, body.slice(0, 100));
-    if (r.ok && !isHtml) return parseEUIPO(JSON.parse(body));
+  const clientId = process.env.EUIPO_CLIENT_ID;
+  if (!clientId) {
+    throw new Error(
+      'EUIPO not configured — register at dev.euipo.europa.eu and add ' +
+      'EUIPO_CLIENT_ID + EUIPO_CLIENT_SECRET in Netlify env vars'
+    );
   }
 
-  // Discover API URL from EUIPO eSearch homepage JS bundles
-  const homeRes  = await fetch('https://euipo.europa.eu/eSearch/', { headers: { Accept: 'text/html', 'User-Agent': UA } });
-  const homeHtml = await homeRes.text();
-  const scripts  = [...homeHtml.matchAll(/src="([^"]*\.js[^"]*)"/g)].map(m => m[1]);
-  console.log('[euipo] home scripts:', scripts.slice(0, 6).join(' | '));
+  const sandbox = process.env.EUIPO_SANDBOX !== 'false';
+  const base    = sandbox
+    ? 'https://api-sandbox.euipo.europa.eu/trademark-search'
+    : 'https://api.euipo.europa.eu/trademark-search';
 
-  for (const src of scripts.slice(0, 5)) {
-    const jsUrl = src.startsWith('http') ? src : 'https://euipo.europa.eu' + src;
-    try {
-      const jsRes  = await fetch(jsUrl, { headers: { 'User-Agent': UA } });
-      const jsText = await jsRes.text();
-      const refs   = [...new Set([
-        ...[...jsText.matchAll(/["'`]((?:https?:\/\/[^"'`\s,)]*)?\/[^"'`\s,)]*trademark[^"'`\s,)]*)/gi)].map(m => m[1]),
-      ])].slice(0, 10);
-      if (refs.length) { console.log('[euipo] paths in bundle:', refs.join('\n')); break; }
-    } catch { /* continue */ }
-  }
+  const token = await getEUIPOToken();
 
-  throw new Error('EUIPO: no working endpoint found — check [euipo] logs for discovered paths');
+  // Try both common query param names — log response to discover correct one
+  const params = new URLSearchParams({
+    wordmark: query,
+    page:     '0',
+    size:     '50',
+  });
+
+  const url = `${base}/trademarks?${params}`;
+  console.log('[euipo] GET', url);
+
+  const r = await fetch(url, {
+    headers: {
+      Authorization:    `Bearer ${token}`,
+      'X-IBM-Client-Id': clientId,
+      Accept:            'application/json',
+      'User-Agent':      UA,
+    },
+  });
+
+  const body = await r.text();
+  console.log('[euipo] status:', r.status, 'body[:200]:', body.slice(0, 200));
+
+  if (!r.ok) throw new Error(`EUIPO search HTTP ${r.status}: ${body.slice(0, 120)}`);
+
+  const data = JSON.parse(body);
+  return parseEUIPO(data);
 }
 
 function parseEUIPO(data) {
-  console.log('[euipo] keys:', Object.keys(data).join(','));
-  const items = data.trademarks || data.items || data.results || data.data || [];
-  console.log('[euipo] count:', items.length, 'first keys:', items[0] ? Object.keys(items[0]).join(',') : 'none');
+  console.log('[euipo] response keys:', Object.keys(data).join(','));
+  const items = data.trademarks || data.content || data.results || data.items || [];
+  if (items[0]) console.log('[euipo] first item keys:', Object.keys(items[0]).join(','));
   return items.map(t => ({
-    name:       t.tmName || t.trademarkName || t.wordMark || t.name || t.markVerbal || '',
+    name:       t.wordMark || t.tmName || t.trademarkName || t.wordmark || t.name || '',
     holder:     t.holderName || t.ownerName || t.applicantName ||
-                (Array.isArray(t.holders) ? t.holders[0] : '') ||
-                (Array.isArray(t.owners)  ? t.owners[0]?.name : '') || '',
-    status:     t.tmStatus || t.status || t.statusCode || '',
+                (Array.isArray(t.holders) ? t.holders[0]?.name || t.holders[0] : '') ||
+                (Array.isArray(t.owners)  ? t.owners[0]?.name  : '') || '',
+    status:     t.tmStatus || t.status || t.statusCode || t.statusDescription || '',
     appNumber:  t.applicationNumber || t.appNumber || t.trademarkId || '',
     filingDate: fmtDate(t.applicationDate || t.filingDate || ''),
     classes:    arrToStr(t.niceClasses || t.niceClass || t.classes || []),
@@ -116,82 +206,27 @@ function parseEUIPO(data) {
   }));
 }
 
-// USPTO TrademarkSearch API
-async function fetchUSPTO(query) {
-  const jsonHdr = {
-    Accept: 'application/json',
-    'User-Agent': UA,
-    Origin: 'https://tmsearch.uspto.gov',
-    Referer: 'https://tmsearch.uspto.gov/',
-  };
+// ─── Sweden (PRV) ─────────────────────────────────────────────────────────────
 
-  const candidates = [
-    `https://tmsearch.uspto.gov/search/search-information?searchInput=${encodeURIComponent(query)}&searchOption1=KW`,
-    `https://tmsearch.uspto.gov/api/v1/search?q=${encodeURIComponent(query)}&rows=100`,
-    `https://tmsearch.uspto.gov/api/v1/trademark/search?q=${encodeURIComponent(query)}&rows=100`,
-  ];
-
-  for (const url of candidates) {
-    const r    = await fetch(url, { headers: jsonHdr });
-    const body = await r.text();
-    const isHtml = body.trimStart().startsWith('<');
-    console.log('[uspto] try:', url.slice(35), '->', r.status, 'html?', isHtml, body.slice(0, 100));
-    if (r.ok && !isHtml) return parseUSPTO(JSON.parse(body));
-  }
-
-  // Discover from homepage
-  const homeRes  = await fetch('https://tmsearch.uspto.gov/', { headers: { Accept: 'text/html', 'User-Agent': UA } });
-  const homeHtml = await homeRes.text();
-  const scripts  = [...homeHtml.matchAll(/src="([^"]*\.js[^"]*)"/g)].map(m => m[1]);
-  console.log('[uspto] home scripts:', scripts.slice(0, 6).join(' | '));
-
-  for (const src of scripts.slice(0, 5)) {
-    const jsUrl = src.startsWith('http') ? src : 'https://tmsearch.uspto.gov' + src;
-    try {
-      const jsRes  = await fetch(jsUrl, { headers: { 'User-Agent': UA } });
-      const jsText = await jsRes.text();
-      const refs   = [...new Set([
-        ...[...jsText.matchAll(/["'`]((?:https?:\/\/[^"'`\s,)]*)?\/[^"'`\s,)]*(?:search|trademark)[^"'`\s,)]*)/gi)].map(m => m[1]),
-      ])].slice(0, 10);
-      if (refs.length) { console.log('[uspto] paths in bundle:', refs.join('\n')); break; }
-    } catch { /* continue */ }
-  }
-
-  throw new Error('USPTO: no working endpoint found — check [uspto] logs for discovered paths');
-}
-
-function parseUSPTO(data) {
-  console.log('[uspto] keys:', Object.keys(data).join(','));
-  const items = data.marks || data.trademarks || data.results || data.hits?.hits || [];
-  console.log('[uspto] count:', items.length, 'first keys:', items[0] ? Object.keys(items[0]).join(',') : 'none');
-  return items.map(t => ({
-    name:       t.wordMark || t.markText || t.text || '',
-    holder:     t.ownerName || t.holderName || t.applicantName || '',
-    status:     t.statusCode || t.statusDescription || t.status || '',
-    appNumber:  t.serialNumber || t.registrationNumber || t.appNumber || '',
-    filingDate: fmtDate(t.filingDate || t.applicationDate || ''),
-    classes:    arrToStr(t.intlClass || t.niceClasses || t.classes || []),
-    office:     'US',
-  }));
-}
-
-// Sweden (PRV) — empty for now; users verify directly at PRV
 async function fetchPRV(query) {
   return [];
 }
 
-// Risk assessment
+// ─── Risk assessment ──────────────────────────────────────────────────────────
+
 function buildOfficeResult(marks, query) {
-  const q    = query.toLowerCase().trim();
-  const live = marks.filter(m => LIVE_KEYWORDS.some(k => m.status.toLowerCase().includes(k)));
+  const q     = query.toLowerCase().trim();
+  const live  = marks.filter(m => LIVE_KEYWORDS.some(k => m.status.toLowerCase().includes(k)));
   const exact = live.some(m => m.name.toLowerCase() === q);
   return {
-    risk: exact ? 'red' : live.length > 0 ? 'yellow' : 'green',
+    risk:         exact ? 'red' : live.length > 0 ? 'yellow' : 'green',
     totalMatches: marks.length,
-    liveCount: live.length,
+    liveCount:    live.length,
     marks,
   };
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function arrToStr(v) {
   if (Array.isArray(v)) return v.join(', ');
@@ -201,5 +236,5 @@ function arrToStr(v) {
 function fmtDate(r) {
   if (!r) return '';
   const s = String(r).replace(/-/g, '');
-  return s.length === 8 ? `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}` : r;
+  return s.length === 8 ? `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}` : String(r);
 }
