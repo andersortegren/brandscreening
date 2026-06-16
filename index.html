@@ -568,7 +568,10 @@
         const data = await res.json();
 
         if (!res.ok) {
-          throw new Error(data.error || 'Unknown error');
+          // Include detail for debugging (shown in small text below error)
+          const msg = data.error || 'Unknown error';
+          const detail = data.detail ? ` — ${data.detail}` : '';
+          throw new Error(msg + detail);
         }
 
         setLoading(false);

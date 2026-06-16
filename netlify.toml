@@ -5,6 +5,9 @@
 [functions]
   node_bundler = "esbuild"
 
+[functions."*"]
+  node_version = "18"
+
 [[headers]]
   for = "/*"
   [headers.values]
