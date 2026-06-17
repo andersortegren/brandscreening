@@ -127,14 +127,17 @@ async function getEUIPOToken() {
   const tokenUrl = 'https://auth.euipo.europa.eu/oidc/accessToken';
   console.log('[euipo] fetching token, clientId:', clientId?.slice(0,8) + '...' + clientId?.slice(-4), 'secretLen:', clientSecret?.length);
 
+  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
   const r = await fetch(tokenUrl, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
-    body:    new URLSearchParams({
-      grant_type:    'client_credentials',
-      client_id:     clientId,
-      client_secret: clientSecret,
-      scope:         'uid',
+    headers: {
+      'Content-Type':  'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${basicAuth}`,
+      'User-Agent':    UA,
+    },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      scope:      'uid',
     }).toString(),
   });
 
