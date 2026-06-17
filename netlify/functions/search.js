@@ -123,23 +123,30 @@ async function getEUIPOToken() {
   const clientSecret = process.env.EUIPO_CLIENT_SECRET;
   if (!clientId || !clientSecret) throw new Error('EUIPO not configured');
 
-  // Official token URL per EUIPO Security page
-  const tokenUrl = 'https://auth.euipo.europa.eu/oidc/accessToken';
+  const tokenUrl = 'https://euipo.europa.eu/cas-server-webapp/oidc/accessToken';
   console.log('[euipo] fetching token, clientId:', clientId?.slice(0,8) + '...' + clientId?.slice(-4), 'secretLen:', clientSecret?.length);
 
   const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-  const r = await fetch(tokenUrl, {
-    method:  'POST',
-    headers: {
-      'Content-Type':  'application/x-www-form-urlencoded',
-      'Authorization': `Basic ${basicAuth}`,
-      'User-Agent':    UA,
-    },
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      scope:      'uid',
-    }).toString(),
-  });
+  const tokenAc = new AbortController();
+  const tokenTimer = setTimeout(() => tokenAc.abort(), 8000);
+  let r;
+  try {
+    r = await fetch(tokenUrl, {
+      signal:  tokenAc.signal,
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${basicAuth}`,
+        'User-Agent':    UA,
+      },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        scope:      'uid',
+      }).toString(),
+    });
+  } finally {
+    clearTimeout(tokenTimer);
+  }
 
   const text = await r.text();
   console.log('[euipo] token status:', r.status, 'body[:200]:', text.slice(0, 200));
