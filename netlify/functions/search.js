@@ -171,7 +171,7 @@ async function fetchEUIPO(query) {
 
   const token = await getEUIPOToken();
 
-  const params = new URLSearchParams({ wordmark: query, page: '0', size: '50' });
+  const params = new URLSearchParams({ wordMark: query, page: '0', size: '50' });
   const url    = `${base}/trademarks?${params}`;
   console.log('[euipo] GET', url);
 
@@ -185,7 +185,8 @@ async function fetchEUIPO(query) {
   });
 
   const body = await r.text();
-  console.log('[euipo] status:', r.status, 'body[:200]:', body.slice(0, 200));
+  // Log full body (up to 1000 chars) to help debug response structure
+  console.log('[euipo] status:', r.status, 'body[:1000]:', body.slice(0, 1000));
 
   if (!r.ok) throw new Error(`EUIPO search HTTP ${r.status}: ${body.slice(0, 120)}`);
 
