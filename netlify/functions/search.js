@@ -26,9 +26,8 @@ const CORS = {
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-// EUIPO OAuth2 token cache - persists across warm function invocations
-let euipoToken = null;
-let euipoTokenExpires = 0;
+// EUIPO uses IBM API Connect — auth via X-IBM-Client-Id + X-IBM-Client-Secret headers directly.
+// No OAuth2 token fetch needed; the auth.euipo.europa.eu OIDC endpoint is blocked from Lambda.
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS };
@@ -109,55 +108,13 @@ async function fetchUSPTO(query) {
   }));
 }
 
-// EU via EUIPO OAuth2 API (production portal: dev.euipo.europa.eu)
-async function getEUIPOToken() {
-  if (euipoToken && Date.now() < euipoTokenExpires) return euipoToken;
-
+// EU via EUIPO IBM API Connect (production portal: dev.euipo.europa.eu)
+// Auth: X-IBM-Client-Id + X-IBM-Client-Secret headers — no OAuth2 token fetch.
+async function fetchEUIPO(query) {
   const clientId     = process.env.EUIPO_CLIENT_ID;
   const clientSecret = process.env.EUIPO_CLIENT_SECRET;
-  const sandbox      = process.env.EUIPO_SANDBOX === 'true'; // default: production
 
   if (!clientId || !clientSecret) {
-    throw new Error(
-      'EUIPO not configured - register at dev.euipo.europa.eu, add ' +
-      'EUIPO_CLIENT_ID + EUIPO_CLIENT_SECRET in Netlify env vars'
-    );
-  }
-
-  const tokenUrl = sandbox
-    ? 'https://auth-sandbox.euipo.europa.eu/oidc/accessToken'
-    : 'https://auth.euipo.europa.eu/oidc/accessToken';
-
-  console.log('[euipo] fetching token from', sandbox ? 'sandbox' : 'production');
-
-  const body = new URLSearchParams({
-    client_id:     clientId,
-    client_secret: clientSecret,
-    grant_type:    'client_credentials',
-    scope:         'uid',
-  });
-
-  const r = await fetch(tokenUrl, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
-    body:    body.toString(),
-  });
-
-  if (!r.ok) {
-    const err = await r.text();
-    throw new Error(`EUIPO token error ${r.status}: ${err.slice(0, 120)}`);
-  }
-
-  const data        = await r.json();
-  euipoToken        = data.access_token;
-  euipoTokenExpires = Date.now() + Math.max(0, (data.expires_in || 28800) - 300) * 1000;
-  console.log('[euipo] token obtained, expires_in:', data.expires_in);
-  return euipoToken;
-}
-
-async function fetchEUIPO(query) {
-  const clientId = process.env.EUIPO_CLIENT_ID;
-  if (!clientId) {
     throw new Error(
       'EUIPO not configured - register at dev.euipo.europa.eu, add ' +
       'EUIPO_CLIENT_ID + EUIPO_CLIENT_SECRET in Netlify env vars'
@@ -169,23 +126,20 @@ async function fetchEUIPO(query) {
     ? 'https://api-sandbox.euipo.europa.eu/trademark-search'
     : 'https://api.euipo.europa.eu/trademark-search';
 
-  const token = await getEUIPOToken();
-
   const params = new URLSearchParams({ wordMark: query, page: '0', size: '50' });
   const url    = `${base}/trademarks?${params}`;
   console.log('[euipo] GET', url);
 
   const r = await fetch(url, {
     headers: {
-      Authorization:     `Bearer ${token}`,
-      'X-IBM-Client-Id': clientId,
-      Accept:            'application/json',
-      'User-Agent':      UA,
+      'X-IBM-Client-Id':     clientId,
+      'X-IBM-Client-Secret': clientSecret,
+      Accept:                'application/json',
+      'User-Agent':          UA,
     },
   });
 
   const body = await r.text();
-  // Log full body (up to 1000 chars) to help debug response structure
   console.log('[euipo] status:', r.status, 'body[:1000]:', body.slice(0, 1000));
 
   if (!r.ok) throw new Error(`EUIPO search HTTP ${r.status}: ${body.slice(0, 120)}`);
