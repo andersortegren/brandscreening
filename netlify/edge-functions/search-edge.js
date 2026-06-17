@@ -117,7 +117,7 @@ async function fetchEUIPO(query) {
 
   console.log('[euipo] fetching token, clientId:', clientId.slice(0, 8) + '...' + clientId.slice(-4));
 
-  const tokenR = await fetch('https://auth.euipo.europa.eu/oidc/accessToken', {
+  const tokenR = await fetch('https://auth-sandbox.euipo.europa.eu/oidc/accessToken', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
