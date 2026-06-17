@@ -145,6 +145,11 @@ async function getEUIPOToken() {
   const parsed      = JSON.parse(text);
   euipoToken        = parsed.access_token;
   euipoTokenExpires = Date.now() + Math.max(0, (parsed.expires_in || 28800) - 300) * 1000;
+  // Decode JWT payload to see what claims CAS puts in the token
+  try {
+    const payload = JSON.parse(Buffer.from(euipoToken.split('.')[1], 'base64').toString());
+    console.log('[euipo] token claims:', JSON.stringify(payload));
+  } catch (e) { console.log('[euipo] could not decode token'); }
   return euipoToken;
 }
 
