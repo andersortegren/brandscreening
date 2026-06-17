@@ -6,10 +6,13 @@
 //   EUIPO_SANDBOX       - set to "true" to use sandbox, omit or set "false" for production
 
 const LIVE_KEYWORDS = [
+  // USPTO statuses (lowercase substrings)
   'registered', 'live', 'pending', 'published', 'filed', 'active',
   'application received', 'under examination', 'opposition', 'accepted',
-  // Swedish PRV status terms (via TMview)
-  'registrerat', 'ingivet', 'ansökt', 'invändning', 'publicerat',
+  // EUIPO status enum values (exact uppercase, also matched via .toLowerCase().includes())
+  'received', 'under_examination', 'application_published', 'registration_pending',
+  'opposition_pending', 'appealed', 'cancellation_pending', 'acceptance_pending',
+  'start_of_opposition_period', 'appealable',
 ];
 
 const OFFICES = {
@@ -108,40 +111,66 @@ async function fetchUSPTO(query) {
   }));
 }
 
-// EU via EUIPO IBM API Connect (production portal: dev.euipo.europa.eu)
-// Auth: X-IBM-Client-Id + X-IBM-Client-Secret headers — no OAuth2 token fetch.
-async function fetchEUIPO(query) {
+// EUIPO OAuth2 token cache
+let euipoToken = null;
+let euipoTokenExpires = 0;
+
+// EU via EUIPO API — token URL from official openapi.json spec
+async function getEUIPOToken() {
+  if (euipoToken && Date.now() < euipoTokenExpires) return euipoToken;
+
   const clientId     = process.env.EUIPO_CLIENT_ID;
   const clientSecret = process.env.EUIPO_CLIENT_SECRET;
+  if (!clientId || !clientSecret) throw new Error('EUIPO not configured');
 
-  if (!clientId || !clientSecret) {
-    throw new Error(
-      'EUIPO not configured - register at dev.euipo.europa.eu, add ' +
-      'EUIPO_CLIENT_ID + EUIPO_CLIENT_SECRET in Netlify env vars'
-    );
-  }
+  // Correct token URL per EUIPO openapi.json (not auth.euipo.europa.eu)
+  const tokenUrl = 'https://euipo.europa.eu/cas-server-webapp/oidc/accessToken';
+  console.log('[euipo] fetching token');
 
-  const sandbox = process.env.EUIPO_SANDBOX === 'true';
-  const base    = sandbox
-    ? 'https://api-sandbox.euipo.europa.eu/trademark-search'
-    : 'https://api.euipo.europa.eu/trademark-search';
+  const r = await fetch(tokenUrl, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
+    body:    new URLSearchParams({
+      grant_type:    'client_credentials',
+      client_id:     clientId,
+      client_secret: clientSecret,
+      scope:         'uid',
+    }).toString(),
+  });
 
-  const params = new URLSearchParams({ wordMark: query, page: '0', size: '50' });
-  const url    = `${base}/trademarks?${params}`;
+  const text = await r.text();
+  console.log('[euipo] token status:', r.status, 'body[:200]:', text.slice(0, 200));
+  if (!r.ok) throw new Error(`EUIPO token error ${r.status}: ${text.slice(0, 120)}`);
+
+  const parsed      = JSON.parse(text);
+  euipoToken        = parsed.access_token;
+  euipoTokenExpires = Date.now() + Math.max(0, (parsed.expires_in || 28800) - 300) * 1000;
+  return euipoToken;
+}
+
+async function fetchEUIPO(query) {
+  const clientId = process.env.EUIPO_CLIENT_ID;
+  if (!clientId) throw new Error('EUIPO not configured');
+
+  const token = await getEUIPOToken();
+
+  // RSQL query per spec — wildcard on verbalElement
+  const rsql   = `wordMarkSpecification.verbalElement==*${query}*`;
+  const params = new URLSearchParams({ query: rsql, page: '0', size: '50' });
+  const url    = `https://api.euipo.europa.eu/trademark-search/trademarks?${params}`;
   console.log('[euipo] GET', url);
 
   const r = await fetch(url, {
     headers: {
-      'X-IBM-Client-Id':     clientId,
-      'X-IBM-Client-Secret': clientSecret,
-      Accept:                'application/json',
-      'User-Agent':          UA,
+      Authorization:     `Bearer ${token}`,
+      'X-IBM-Client-Id': clientId,
+      Accept:            'application/json',
+      'User-Agent':      UA,
     },
   });
 
   const body = await r.text();
-  console.log('[euipo] status:', r.status, 'body[:1000]:', body.slice(0, 1000));
-
+  console.log('[euipo] status:', r.status, 'body[:500]:', body.slice(0, 500));
   if (!r.ok) throw new Error(`EUIPO search HTTP ${r.status}: ${body.slice(0, 120)}`);
 
   const data = JSON.parse(body);
@@ -149,18 +178,16 @@ async function fetchEUIPO(query) {
 }
 
 function parseEUIPO(data) {
-  console.log('[euipo] response keys:', Object.keys(data).join(','));
-  const items = data.trademarks || data.content || data.results || data.items || [];
-  if (items[0]) console.log('[euipo] first item keys:', Object.keys(items[0]).join(','));
+  // Response schema: { trademarks: [...], totalElements, totalPages, page, size }
+  const items = data.trademarks || [];
+  console.log('[euipo] totalElements:', data.totalElements, 'returned:', items.length);
   return items.map(t => ({
-    name:       t.wordMark || t.tmName || t.trademarkName || t.wordmark || t.name || '',
-    holder:     t.holderName || t.ownerName || t.applicantName ||
-                (Array.isArray(t.holders) ? t.holders[0]?.name || t.holders[0] : '') ||
-                (Array.isArray(t.owners)  ? t.owners[0]?.name  : '') || '',
-    status:     t.tmStatus || t.status || t.statusCode || t.statusDescription || '',
-    appNumber:  t.applicationNumber || t.appNumber || t.trademarkId || '',
-    filingDate: fmtDate(t.applicationDate || t.filingDate || ''),
-    classes:    arrToStr(t.niceClasses || t.niceClass || t.classes || []),
+    name:       t.wordMarkSpecification?.verbalElement || '',
+    holder:     (Array.isArray(t.applicants) ? t.applicants[0]?.name : '') || '',
+    status:     t.status || '',
+    appNumber:  t.applicationNumber || '',
+    filingDate: fmtDate(t.applicationDate || ''),
+    classes:    arrToStr(t.niceClasses || []),
     office:     'EM',
   }));
 }
