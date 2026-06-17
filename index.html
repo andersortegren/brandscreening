@@ -559,7 +559,7 @@
     setState('loading');
 
     try {
-      const res  = await fetch(`/.netlify/functions/search?q=${encodeURIComponent(q)}`);
+      const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
       const data = await res.json();
 
       if (!res.ok) {

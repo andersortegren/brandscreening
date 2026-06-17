@@ -10,6 +10,11 @@
   node_version = "18"
   timeout = 26
 
+# Edge function — runs on Cloudflare (not AWS Lambda), so EUIPO auth.euipo.europa.eu is reachable
+[[edge_functions]]
+  path     = "/api/search"
+  function = "search-edge"
+
 [[headers]]
   for = "/*"
   [headers.values]
