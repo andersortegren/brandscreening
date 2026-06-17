@@ -107,26 +107,48 @@ async function fetchUSPTO(query) {
 }
 
 // ---------- EUIPO ----------
-// IBM API Connect supports passing API Key + Secret directly as headers,
-// bypassing the OAuth2 token fetch entirely (auth.euipo.europa.eu blocks all datacenter IPs).
+// EUIPO docs: credentials go in POST body as client_id/client_secret params, NOT Basic Auth header.
+// Same client_id is then sent as X-IBM-Client-Id on the search request.
 
 async function fetchEUIPO(query) {
   const clientId     = Deno.env.get('EUIPO_CLIENT_ID');
   const clientSecret = Deno.env.get('EUIPO_CLIENT_SECRET');
   if (!clientId || !clientSecret) throw new Error('EUIPO not configured');
 
+  console.log('[euipo] fetching token, clientId:', clientId.slice(0, 8) + '...' + clientId.slice(-4));
+
+  const tokenR = await fetch('https://auth.euipo.europa.eu/oidc/accessToken', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent':   UA,
+    },
+    body: new URLSearchParams({
+      client_id:     clientId,
+      client_secret: clientSecret,
+      grant_type:    'client_credentials',
+      scope:         'uid',
+    }).toString(),
+  });
+
+  const tokenText = await tokenR.text();
+  console.log('[euipo] token status:', tokenR.status, 'body[:200]:', tokenText.slice(0, 200));
+  if (!tokenR.ok) throw new Error(`EUIPO token error ${tokenR.status}: ${tokenText.slice(0, 120)}`);
+
+  const token = JSON.parse(tokenText).access_token;
+
   // Search using RSQL wildcard on verbalElement
   const rsql   = `wordMarkSpecification.verbalElement==*${query}*`;
   const params = new URLSearchParams({ query: rsql, page: '0', size: '50' });
   const url    = `https://api.euipo.europa.eu/trademark-search/trademarks?${params}`;
-  console.log('[euipo] GET', url, 'clientId:', clientId.slice(0, 8) + '...' + clientId.slice(-4));
+  console.log('[euipo] GET', url);
 
   const r = await fetch(url, {
     headers: {
-      'X-IBM-Client-Id':     clientId,
-      'X-IBM-Client-Secret': clientSecret,
-      'Accept':              'application/json',
-      'User-Agent':          UA,
+      'Authorization':   `Bearer ${token}`,
+      'X-IBM-Client-Id': clientId,
+      'Accept':          'application/json',
+      'User-Agent':      UA,
     },
   });
 
