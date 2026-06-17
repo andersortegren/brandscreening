@@ -123,8 +123,8 @@ async function getEUIPOToken() {
   const clientSecret = process.env.EUIPO_CLIENT_SECRET;
   if (!clientId || !clientSecret) throw new Error('EUIPO not configured');
 
-  // Correct token URL per EUIPO openapi.json (not auth.euipo.europa.eu)
-  const tokenUrl = 'https://euipo.europa.eu/cas-server-webapp/oidc/accessToken';
+  // Official token URL per EUIPO Security page
+  const tokenUrl = 'https://auth.euipo.europa.eu/oidc/accessToken';
   console.log('[euipo] fetching token, clientId:', clientId?.slice(0,8) + '...' + clientId?.slice(-4), 'secretLen:', clientSecret?.length);
 
   const r = await fetch(tokenUrl, {
