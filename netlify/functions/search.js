@@ -125,7 +125,7 @@ async function getEUIPOToken() {
 
   // Correct token URL per EUIPO openapi.json (not auth.euipo.europa.eu)
   const tokenUrl = 'https://euipo.europa.eu/cas-server-webapp/oidc/accessToken';
-  console.log('[euipo] fetching token');
+  console.log('[euipo] fetching token, clientId:', clientId?.slice(0,8) + '...' + clientId?.slice(-4), 'secretLen:', clientSecret?.length);
 
   const r = await fetch(tokenUrl, {
     method:  'POST',
