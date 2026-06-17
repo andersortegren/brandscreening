@@ -160,14 +160,22 @@ async function fetchEUIPO(query) {
   const url    = `https://api.euipo.europa.eu/trademark-search/trademarks?${params}`;
   console.log('[euipo] GET', url);
 
-  const r = await fetch(url, {
-    headers: {
-      Authorization:     `Bearer ${token}`,
-      'X-IBM-Client-Id': clientId,
-      Accept:            'application/json',
-      'User-Agent':      UA,
-    },
-  });
+  const ac = new AbortController();
+  const t  = setTimeout(() => ac.abort(), 12000); // 12s hard timeout
+  let r;
+  try {
+    r = await fetch(url, {
+      signal: ac.signal,
+      headers: {
+        Authorization:     `Bearer ${token}`,
+        'X-IBM-Client-Id': clientId,
+        Accept:            'application/json',
+        'User-Agent':      UA,
+      },
+    });
+  } finally {
+    clearTimeout(t);
+  }
 
   const body = await r.text();
   console.log('[euipo] status:', r.status, 'body[:500]:', body.slice(0, 500));

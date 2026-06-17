@@ -8,6 +8,7 @@
 
 [functions."*"]
   node_version = "18"
+  timeout = 26
 
 [[headers]]
   for = "/*"
