@@ -107,54 +107,26 @@ async function fetchUSPTO(query) {
 }
 
 // ---------- EUIPO ----------
-// Uses auth.euipo.europa.eu (IBM API Connect OAuth2 proxy).
-// This endpoint is reachable from Cloudflare/Deno but NOT from AWS Lambda.
-// IBM API Connect issues the token using the API Key/Secret from dev.euipo.europa.eu.
+// IBM API Connect supports passing API Key + Secret directly as headers,
+// bypassing the OAuth2 token fetch entirely (auth.euipo.europa.eu blocks all datacenter IPs).
 
 async function fetchEUIPO(query) {
   const clientId     = Deno.env.get('EUIPO_CLIENT_ID');
   const clientSecret = Deno.env.get('EUIPO_CLIENT_SECRET');
   if (!clientId || !clientSecret) throw new Error('EUIPO not configured');
 
-  // OAuth2 client credentials — IBM API Connect endpoint
-  const basicAuth = btoa(`${clientId}:${clientSecret}`);
-  console.log('[euipo] fetching token from auth.euipo.europa.eu, clientId:', clientId.slice(0, 8) + '...' + clientId.slice(-4));
-
-  const tokenR = await fetch('https://auth.euipo.europa.eu/oidc/accessToken', {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/x-www-form-urlencoded',
-      'Authorization': `Basic ${basicAuth}`,
-      'User-Agent':    UA,
-    },
-    body: new URLSearchParams({ grant_type: 'client_credentials', scope: 'uid' }).toString(),
-  });
-
-  const tokenText = await tokenR.text();
-  console.log('[euipo] token status:', tokenR.status, 'body[:200]:', tokenText.slice(0, 200));
-  if (!tokenR.ok) throw new Error(`EUIPO token error ${tokenR.status}: ${tokenText.slice(0, 120)}`);
-
-  const tokenData = JSON.parse(tokenText);
-  const token     = tokenData.access_token;
-
-  // Decode JWT to log claims (helpful for debugging)
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    console.log('[euipo] token claims:', JSON.stringify(payload));
-  } catch (_) { /* ignore */ }
-
   // Search using RSQL wildcard on verbalElement
   const rsql   = `wordMarkSpecification.verbalElement==*${query}*`;
   const params = new URLSearchParams({ query: rsql, page: '0', size: '50' });
   const url    = `https://api.euipo.europa.eu/trademark-search/trademarks?${params}`;
-  console.log('[euipo] GET', url);
+  console.log('[euipo] GET', url, 'clientId:', clientId.slice(0, 8) + '...' + clientId.slice(-4));
 
   const r = await fetch(url, {
     headers: {
-      'Authorization':   `Bearer ${token}`,
-      'X-IBM-Client-Id': clientId,
-      'Accept':          'application/json',
-      'User-Agent':      UA,
+      'X-IBM-Client-Id':     clientId,
+      'X-IBM-Client-Secret': clientSecret,
+      'Accept':              'application/json',
+      'User-Agent':          UA,
     },
   });
 
