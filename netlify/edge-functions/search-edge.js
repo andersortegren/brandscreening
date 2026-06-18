@@ -106,16 +106,19 @@ async function fetchUSPTO(query) {
   }));
 }
 
-// ---------- EUIPO ----------
-// EUIPO docs: credentials go in POST body as client_id/client_secret params, NOT Basic Auth header.
-// Same client_id is then sent as X-IBM-Client-Id on the search request.
+// ---------- EUIPO (sandbox) ----------
+// Using sandbox while production auth.euipo.europa.eu returns 502 (server-side issue at EUIPO).
+// Sandbox credentials are separate from production — set EUIPO_SANDBOX_CLIENT_ID and
+// EUIPO_SANDBOX_CLIENT_SECRET in Netlify env vars (from dev-sandbox.euipo.europa.eu).
+// When production auth is fixed, swap to EUIPO_CLIENT_ID + EUIPO_CLIENT_SECRET and
+// change both URLs back to api.euipo.europa.eu / auth.euipo.europa.eu.
 
 async function fetchEUIPO(query) {
-  const clientId     = Deno.env.get('EUIPO_CLIENT_ID');
-  const clientSecret = Deno.env.get('EUIPO_CLIENT_SECRET');
+  const clientId     = Deno.env.get('EUIPO_SANDBOX_CLIENT_ID');
+  const clientSecret = Deno.env.get('EUIPO_SANDBOX_CLIENT_SECRET');
   if (!clientId || !clientSecret) throw new Error('EUIPO not configured');
 
-  console.log('[euipo] fetching token, clientId:', clientId.slice(0, 8) + '...' + clientId.slice(-4));
+  console.log('[euipo] fetching sandbox token, clientId:', clientId.slice(0, 8) + '...' + clientId.slice(-4));
 
   const tokenR = await fetch('https://auth-sandbox.euipo.europa.eu/oidc/accessToken', {
     method: 'POST',
@@ -140,7 +143,7 @@ async function fetchEUIPO(query) {
   // Search using RSQL wildcard on verbalElement
   const rsql   = `wordMarkSpecification.verbalElement==*${query}*`;
   const params = new URLSearchParams({ query: rsql, page: '0', size: '50' });
-  const url    = `https://api.euipo.europa.eu/trademark-search/trademarks?${params}`;
+  const url    = `https://api-sandbox.euipo.europa.eu/trademark-search/trademarks?${params}`;
   console.log('[euipo] GET', url);
 
   const r = await fetch(url, {
