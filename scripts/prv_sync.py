@@ -150,7 +150,8 @@ def main():
         buf.seek(0)
 
         records  = process_zip(buf.read())
-        inserts  = [r for r in records if r['operation_code'] in ('Insert', 'Update')]
+        inserts  = [{k: v for k, v in r.items() if k != 'operation_code'}
+                    for r in records if r['operation_code'] in ('Insert', 'Update')]
         deletes  = [r for r in records if r['operation_code'] == 'Delete']
 
         for j in range(0, len(inserts), BATCH):

@@ -150,7 +150,8 @@ def main():
         buf.seek(0)
 
         records = process_zip(buf.read())
-        to_upsert = [r for r in records if r['operation_code'] != 'Delete']
+        to_upsert = [{k: v for k, v in r.items() if k != 'operation_code'}
+                     for r in records if r['operation_code'] != 'Delete']
         to_delete = [r for r in records if r['operation_code'] == 'Delete']
 
         # Batch upsert
