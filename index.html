@@ -56,10 +56,7 @@
       margin-bottom: 10px;
     }
 
-    .site-header p {
-      font-size: 15px;
-      color: var(--gray-500);
-    }
+    .site-header p { font-size: 15px; color: var(--gray-500); }
 
     /* ── Search ─────────────────────────────── */
     .search-area { margin-bottom: 64px; }
@@ -69,11 +66,12 @@
       border: 1.5px solid var(--black);
       border-radius: var(--radius);
       overflow: hidden;
-      max-width: 600px;
+      margin-bottom: 12px;
     }
 
     .search-input {
       flex: 1;
+      min-width: 0;
       height: 52px;
       padding: 0 18px;
       font-size: 17px;
@@ -88,6 +86,7 @@
     .search-input::placeholder { color: var(--gray-500); font-weight: 400; }
 
     .search-btn {
+      flex-shrink: 0;
       height: 52px;
       padding: 0 28px;
       font-size: 14px;
@@ -101,17 +100,25 @@
       font-family: inherit;
       transition: opacity 0.12s;
       white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .search-btn:hover    { opacity: 0.8; }
     .search-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+    /* ── Options row ────────────────────────── */
     .options-row {
       display: flex;
       align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .option-group {
+      display: flex;
+      align-items: center;
       gap: 10px;
-      margin-top: 10px;
-      max-width: 600px;
     }
 
     .options-label {
@@ -120,11 +127,31 @@
       white-space: nowrap;
     }
 
+    .check-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      padding: 4px 0;
+    }
+
+    .check-label input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--black);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
     .class-input {
-      width: 160px;
-      height: 30px;
+      width: 150px;
+      height: 32px;
       padding: 0 10px;
-      font-size: 12px;
+      font-size: 13px;
       font-family: inherit;
       border: 1.5px solid var(--gray-200);
       border-radius: 4px;
@@ -137,97 +164,7 @@
     .class-input:focus { border-color: var(--black); }
     .class-input::placeholder { color: var(--gray-500); }
 
-    .search-note {
-      margin-top: 8px;
-      font-size: 12px;
-      color: var(--gray-500);
-    }
-
-    /* ── Cards (single mode) ────────────────── */
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 2px;
-      margin-bottom: 2px;
-      background: var(--black);
-      border: 1.5px solid var(--black);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-
-    .card {
-      background: var(--white);
-      padding: 28px 26px 24px;
-    }
-
-    .card-jurisdiction {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--gray-500);
-      margin-bottom: 4px;
-    }
-
-    .card-office {
-      font-size: 13px;
-      color: var(--gray-500);
-      margin-bottom: 20px;
-    }
-
-    .risk-indicator { display: flex; align-items: center; gap: 10px; }
-
-    .risk-dot {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: var(--gray-200);
-      flex-shrink: 0;
-      transition: background 0.25s;
-    }
-
-    .risk-label {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--gray-500);
-      transition: color 0.25s;
-    }
-
-    .card-count { margin-top: 14px; font-size: 12px; color: var(--gray-500); }
-
-    .card-verify {
-      display: inline-block;
-      margin-top: 12px;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--black);
-      text-decoration: none;
-      opacity: 0.4;
-      transition: opacity 0.12s;
-    }
-    .card-verify:hover { opacity: 1; }
-
-    .risk-green  .risk-dot   { background: #16a34a; }
-    .risk-green  .risk-label { color: #166534; }
-    .risk-yellow .risk-dot   { background: #d97706; }
-    .risk-yellow .risk-label { color: #92400e; }
-    .risk-red    .risk-dot   { background: #dc2626; }
-    .risk-red    .risk-label { color: #991b1b; }
-
-    /* ── Note bar ───────────────────────────── */
-    .note-bar {
-      font-size: 12px;
-      color: var(--gray-500);
-      background: var(--gray-100);
-      border: 1.5px solid var(--gray-200);
-      border-top: none;
-      border-radius: 0 0 var(--radius) var(--radius);
-      padding: 10px 14px;
-      margin-bottom: 48px;
-    }
-    .note-bar a { color: var(--black); }
+    .search-note { font-size: 12px; color: var(--gray-500); }
 
     /* ── State boxes ─────────────────────────── */
     .state-box {
@@ -258,23 +195,94 @@
       word-break: break-word;
     }
 
-    /* ── Legend ─────────────────────────────── */
+    /* ── Cards ─────────────────────────────── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2px;
+      margin-bottom: 2px;
+      background: var(--black);
+      border: 1.5px solid var(--black);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .cards.one-col { grid-template-columns: 1fr; }
+
+    .card {
+      background: var(--white);
+      padding: 28px 26px 24px;
+    }
+
+    .card-jurisdiction {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 4px;
+    }
+
+    .card-office { font-size: 13px; color: var(--gray-500); margin-bottom: 20px; }
+
+    .risk-indicator { display: flex; align-items: center; gap: 10px; }
+
+    .risk-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--gray-200);
+      flex-shrink: 0;
+      transition: background 0.25s;
+    }
+
+    .risk-label { font-size: 15px; font-weight: 700; color: var(--gray-500); transition: color 0.25s; }
+
+    .card-count { margin-top: 14px; font-size: 12px; color: var(--gray-500); }
+
+    .card-verify {
+      display: inline-block;
+      margin-top: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--black);
+      text-decoration: none;
+      opacity: 0.4;
+      transition: opacity 0.12s;
+    }
+    .card-verify:hover { opacity: 1; }
+
+    .risk-green  .risk-dot   { background: #16a34a; }
+    .risk-green  .risk-label { color: #166534; }
+    .risk-yellow .risk-dot   { background: #d97706; }
+    .risk-yellow .risk-label { color: #92400e; }
+    .risk-red    .risk-dot   { background: #dc2626; }
+    .risk-red    .risk-label { color: #991b1b; }
+
+    /* ── Note / legend ───────────────────────── */
+    .note-bar {
+      font-size: 12px;
+      color: var(--gray-500);
+      background: var(--gray-100);
+      border: 1.5px solid var(--gray-200);
+      border-top: none;
+      border-radius: 0 0 var(--radius) var(--radius);
+      padding: 10px 14px;
+      margin-bottom: 40px;
+    }
+    .note-bar a { color: var(--black); }
+
     .legend {
       display: flex;
-      gap: 28px;
-      margin-bottom: 48px;
+      gap: 20px;
+      margin-bottom: 40px;
       flex-wrap: wrap;
     }
 
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--gray-500);
-    }
-
-    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--gray-500); }
+    .legend-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
     /* ── Shared table chrome ─────────────────── */
     .results-header {
@@ -282,7 +290,7 @@
       align-items: baseline;
       justify-content: space-between;
       margin-bottom: 14px;
-      gap: 16px;
+      gap: 12px;
       flex-wrap: wrap;
     }
 
@@ -303,14 +311,11 @@
       cursor: pointer;
       font-family: inherit;
       transition: all 0.1s;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .filter-tab:hover,
-    .filter-tab.active {
-      background: var(--black);
-      color: var(--white);
-      border-color: var(--black);
-    }
+    .filter-tab.active { background: var(--black); color: var(--white); border-color: var(--black); }
 
     .table-wrap {
       border: 1.5px solid var(--black);
@@ -318,6 +323,7 @@
       overflow: hidden;
     }
 
+    /* ── Marks table ─────────────────────────── */
     table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 
     thead th {
@@ -332,12 +338,11 @@
       border-bottom: 1.5px solid var(--gray-200);
     }
 
-    tbody tr { border-bottom: 1px solid var(--gray-200); }
+    tbody tr   { border-bottom: 1px solid var(--gray-200); }
     tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: var(--gray-100); }
-    tbody td { padding: 11px 14px; vertical-align: top; }
+    tbody td   { padding: 11px 14px; vertical-align: top; }
 
-    /* ── Marks table columns ─────────────────── */
     .col-mark   { width: 16%; }
     .col-office { width: 7%;  }
     .col-type   { width: 10%; }
@@ -373,26 +378,18 @@
     }
 
     .status-chip { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-    .s-live      { background: var(--green-bg);  color: var(--green); }
-    .s-pending   { background: var(--yellow-bg); color: var(--yellow); }
-    .s-dead      { background: var(--gray-100);  color: var(--gray-500); }
-
+    .s-live    { background: var(--green-bg);  color: var(--green); }
+    .s-pending { background: var(--yellow-bg); color: var(--yellow); }
+    .s-dead    { background: var(--gray-100);  color: var(--gray-500); }
     .expiry-soon { color: var(--yellow); }
 
-    /* ── Bulk summary table ──────────────────── */
+    /* ── Bulk table ──────────────────────────── */
     .bulk-wrap {
       border: 1.5px solid var(--black);
       border-radius: var(--radius);
       overflow: hidden;
-      margin-bottom: 48px;
+      margin-bottom: 40px;
     }
-
-    table.bulk-table { table-layout: fixed; }
-
-    .bcol-name   { width: 18%; }
-    .bcol-us     { width: 22%; }
-    .bcol-eu     { width: 22%; }
-    .bcol-expand { width: 38%; }
 
     .risk-pill {
       display: inline-flex;
@@ -402,6 +399,7 @@
       border-radius: 20px;
       font-size: 11px;
       font-weight: 600;
+      white-space: nowrap;
     }
 
     .pill-red    { background: var(--red-bg);    color: var(--red); }
@@ -420,12 +418,13 @@
       border: none;
       cursor: pointer;
       font-family: inherit;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
       color: var(--black);
-      opacity: 0.45;
-      padding: 0;
+      opacity: 0.4;
+      padding: 6px 0;
       transition: opacity 0.1s;
+      -webkit-tap-highlight-color: transparent;
     }
     .expand-btn:hover, .expand-btn.open { opacity: 1; }
 
@@ -446,16 +445,9 @@
       margin-bottom: 10px;
     }
 
-    table.marks-table { table-layout: fixed; font-size: 12px; }
-    table.marks-table thead th {
-      background: var(--white);
-      font-size: 9px;
-      padding: 8px 10px;
-    }
+    table.marks-table thead th { background: var(--white); font-size: 9px; padding: 8px 10px; }
     table.marks-table tbody td { padding: 9px 10px; }
     table.marks-table tbody tr:hover { background: var(--white); }
-
-    .hidden { display: none !important; }
 
     /* ── Footer ─────────────────────────────── */
     footer {
@@ -466,15 +458,47 @@
       justify-content: space-between;
       font-size: 12px;
       color: var(--gray-500);
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
     .footer-bold { font-size: 14px; font-weight: 800; letter-spacing: -0.5px; color: var(--black); }
 
-    @media (max-width: 680px) {
-      .page { padding: 40px 20px 60px; }
-      .cards { grid-template-columns: 1fr; }
-      .site-header h1 { font-size: 36px; }
-      footer { padding: 16px 20px; flex-direction: column; gap: 8px; text-align: center; }
+    .hidden { display: none !important; }
+
+    /* ── Mobile ──────────────────────────────── */
+    @media (max-width: 640px) {
+      .page { padding: 32px 16px 60px; }
+
+      .site-header { margin-bottom: 40px; padding-bottom: 20px; }
+
+      .search-area { margin-bottom: 40px; }
+
+      .search-input { font-size: 16px; height: 48px; padding: 0 14px; }
+      .search-btn   { height: 48px; padding: 0 18px; font-size: 13px; }
+
+      .options-row { gap: 14px; }
+      .option-group { gap: 8px; }
+      .class-input  { width: 130px; }
+
+      /* Marks table — keep only key columns */
+      .hide-mobile { display: none; }
+
+      /* Recalculate visible column widths */
+      .col-mark   { width: 30%; }
+      .col-office { width: 12%; }
+      .col-exp    { width: 22%; }
+      .col-status { width: 36%; }
+
+      .cards { grid-template-columns: 1fr !important; }
+
+      .card { padding: 20px 18px 16px; }
+
+      .bulk-wrap { border-radius: var(--radius); }
+
+      footer { padding: 16px; flex-direction: column; align-items: flex-start; gap: 6px; }
+
+      .legend { gap: 12px; }
     }
   </style>
 </head>
@@ -493,24 +517,27 @@
         class="search-input"
         id="searchInput"
         type="text"
-        placeholder="Enter brand name — or multiple, separated by commas"
+        placeholder="Brand name — or multiple, comma-separated"
         autocomplete="off"
         autocorrect="off"
         spellcheck="false"
       />
       <button class="search-btn" id="searchBtn">Check</button>
     </div>
+
     <div class="options-row">
-      <span class="options-label">Nice classes</span>
-      <input
-        class="class-input"
-        id="classInput"
-        type="text"
-        placeholder="e.g. 9, 25, 42"
-        autocomplete="off"
-      />
+      <div class="option-group">
+        <span class="options-label">Offices</span>
+        <label class="check-label"><input type="checkbox" id="checkUS" checked> US</label>
+        <label class="check-label"><input type="checkbox" id="checkEU" checked> EU</label>
+      </div>
+      <div class="option-group">
+        <span class="options-label">Nice classes</span>
+        <input class="class-input" id="classInput" type="text" placeholder="e.g. 9, 25, 42" autocomplete="off" />
+      </div>
     </div>
-    <p class="search-note">Leave classes empty to search all &middot; Data via EUIPO &amp; USPTO &middot; Not legal advice</p>
+
+    <p class="search-note">Data via EUIPO &amp; USPTO &middot; Not legal advice</p>
   </div>
 
   <!-- Loading -->
@@ -527,6 +554,7 @@
 
   <!-- Single-name results -->
   <div id="resultsArea" class="hidden">
+
     <div class="cards" id="cards">
       <div class="card" id="card-US">
         <div class="card-jurisdiction">United States</div>
@@ -571,15 +599,15 @@
         </div>
       </div>
       <div class="table-wrap">
-        <table>
+        <table id="singleTable">
           <thead>
             <tr>
               <th class="col-mark">Mark</th>
               <th class="col-office">Office</th>
-              <th class="col-type">Type</th>
-              <th class="col-holder">Holder</th>
-              <th class="col-cls">Classes</th>
-              <th class="col-reg">Registered</th>
+              <th class="col-type hide-mobile">Type</th>
+              <th class="col-holder hide-mobile">Holder</th>
+              <th class="col-cls hide-mobile">Classes</th>
+              <th class="col-reg hide-mobile">Registered</th>
               <th class="col-exp">Expires</th>
               <th class="col-status">Status</th>
             </tr>
@@ -588,10 +616,12 @@
         </table>
       </div>
     </div>
+
   </div>
 
   <!-- Bulk results -->
   <div id="bulkArea" class="hidden">
+
     <div class="legend">
       <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div><span>No live marks found</span></div>
       <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div><span>Similar marks exist</span></div>
@@ -603,23 +633,17 @@
     </div>
 
     <div class="bulk-wrap">
-      <table class="bulk-table">
-        <thead>
-          <tr>
-            <th class="bcol-name">Name</th>
-            <th class="bcol-us">United States</th>
-            <th class="bcol-eu">European Union</th>
-            <th class="bcol-expand"></th>
-          </tr>
-        </thead>
+      <table id="bulkTable" style="table-layout:fixed">
+        <thead id="bulkHead"></thead>
         <tbody id="bulkBody"></tbody>
       </table>
     </div>
 
-    <div class="note-bar" style="margin-top:-46px">
+    <div class="note-bar" style="margin-top:-38px">
       Sweden (PRV): no automated API available — verify at
       <a href="https://search.prv.se/#/trademark" target="_blank" rel="noopener">search.prv.se</a>
     </div>
+
   </div>
 
 </div>
@@ -631,14 +655,23 @@
 </footer>
 
 <script>
-  let allRows     = [];
+  let allRows      = [];
   let activeFilter = 'ALL';
 
   const $ = id => document.getElementById(id);
 
+  // ── Init ──────────────────────────────────────
   $('searchBtn').addEventListener('click', run);
   $('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
   $('classInput').addEventListener('keydown',  e => { if (e.key === 'Enter') run(); });
+
+  $('checkUS').addEventListener('change', validateOffices);
+  $('checkEU').addEventListener('change', validateOffices);
+
+  function validateOffices() {
+    const any = $('checkUS').checked || $('checkEU').checked;
+    $('searchBtn').disabled = !any;
+  }
 
   $('filterTabs').querySelectorAll('.filter-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -660,6 +693,14 @@
     btn.classList.toggle('open', !isOpen);
   });
 
+  // ── Helpers ───────────────────────────────────
+  function getOffices() {
+    const o = [];
+    if ($('checkUS').checked) o.push('US');
+    if ($('checkEU').checked) o.push('EM');
+    return o;
+  }
+
   function parseClasses() {
     const raw = $('classInput').value.trim();
     if (!raw) return [];
@@ -672,35 +713,37 @@
     return `/api/search?${params}`;
   }
 
+  // ── Run ───────────────────────────────────────
   async function run() {
     const raw = $('searchInput').value.trim();
     if (!raw || raw.length < 2) { $('searchInput').focus(); return; }
 
     const names   = raw.split(',').map(n => n.trim()).filter(n => n.length >= 2);
     const classes = parseClasses();
+    const offices = getOffices();
 
-    if (names.length === 0) { $('searchInput').focus(); return; }
+    if (names.length === 0 || offices.length === 0) return;
 
     if (names.length === 1) {
-      await runSingle(names[0], classes);
+      await runSingle(names[0], classes, offices);
     } else {
-      await runBulk(names, classes);
+      await runBulk(names, classes, offices);
     }
   }
 
-  async function runSingle(name, classes) {
+  async function runSingle(name, classes, offices) {
     setState('loading');
     try {
       const res  = await fetch(buildApiUrl(name, classes));
       const data = await res.json();
       if (!res.ok) throw new Error((data.error || 'Unknown error') + (data.detail ? ` — ${data.detail}` : ''));
-      setState('single', data);
+      setState('single', { data, offices });
     } catch (err) {
       setState('error', err.message);
     }
   }
 
-  async function runBulk(names, classes) {
+  async function runBulk(names, classes, offices) {
     setState('loading', null, `Checking ${names.length} names…`);
     try {
       const results = await Promise.all(names.map(async name => {
@@ -713,7 +756,7 @@
           return { name, data: null, error: err.message };
         }
       }));
-      setState('bulk', results);
+      setState('bulk', { results, offices });
     } catch (err) {
       setState('error', err.message);
     }
@@ -734,23 +777,33 @@
       $('errorMsg').textContent = payload;
       $('errorState').classList.remove('hidden');
     } else if (mode === 'single') {
-      renderSingleResults(payload);
+      renderSingleResults(payload.data, payload.offices);
       $('resultsArea').classList.remove('hidden');
     } else if (mode === 'bulk') {
-      renderBulkResults(payload);
+      renderBulkResults(payload.results, payload.offices);
       $('bulkArea').classList.remove('hidden');
     }
   }
 
-  // ── Single-name rendering ─────────────────────
-
+  // ── Single rendering ──────────────────────────
   const RISK_LABELS = {
     green: 'No live marks found', yellow: 'Similar marks exist',
     red: 'Exact match found', unknown: 'Unknown',
   };
 
-  function renderSingleResults(data) {
-    ['US', 'EM'].forEach(code => {
+  function renderSingleResults(data, offices) {
+    const showUS = offices.includes('US');
+    const showEU = offices.includes('EM');
+
+    $('card-US').classList.toggle('hidden', !showUS);
+    $('card-EM').classList.toggle('hidden', !showEU);
+    $('cards').classList.toggle('one-col', offices.length === 1);
+
+    // Update filter tabs
+    $('filterTabs').querySelector('[data-office="US"]').classList.toggle('hidden', !showUS);
+    $('filterTabs').querySelector('[data-office="EM"]').classList.toggle('hidden', !showEU);
+
+    offices.forEach(code => {
       const o = data.offices[code];
       if (!o) return;
       $(`card-${code}`).className = `card risk-${o.risk}`;
@@ -760,13 +813,13 @@
     });
 
     allRows = [];
-    ['US', 'EM'].forEach(code => {
+    offices.forEach(code => {
       const o = data.offices[code];
       if (o?.marks) allRows.push(...o.marks.map(m => ({ ...m, _office: code })));
     });
 
     $('resultsTitle').textContent =
-      `${allRows.length} mark${allRows.length !== 1 ? 's' : ''} found for "${data.query}"`;
+      `${allRows.length} mark${allRows.length !== 1 ? 's' : ''} found for “${data.query}”`;
 
     activeFilter = 'ALL';
     $('filterTabs').querySelectorAll('.filter-tab').forEach(b =>
@@ -783,7 +836,7 @@
     if (rows.length === 0) {
       $('resultsBody').innerHTML =
         `<tr><td colspan="8" style="text-align:center;color:var(--gray-500);padding:40px 14px">
-          No marks found for this jurisdiction.
+          No marks found for this filter.
         </td></tr>`;
       return;
     }
@@ -792,20 +845,35 @@
       <tr>
         <td class="mark-name">${x(r.name || '—')}</td>
         <td><span class="office-chip">${x(r._office || r.office || '—')}</span></td>
-        <td>${typeChip(r.markFeature)}</td>
-        <td style="word-break:break-word">${x(r.holder || '—')}</td>
-        <td>${x(r.classes || '—')}</td>
-        <td style="white-space:nowrap">${x(r.regDate || '—')}</td>
+        <td class="hide-mobile">${typeChip(r.markFeature)}</td>
+        <td class="hide-mobile" style="word-break:break-word">${x(r.holder || '—')}</td>
+        <td class="hide-mobile">${x(r.classes || '—')}</td>
+        <td class="hide-mobile" style="white-space:nowrap">${x(r.regDate || '—')}</td>
         <td style="white-space:nowrap">${expiryCell(r.expiryDate)}</td>
         <td>${statusChip(r.status)}</td>
       </tr>`).join('');
   }
 
   // ── Bulk rendering ────────────────────────────
+  function renderBulkResults(results, offices) {
+    const showUS = offices.includes('US');
+    const showEU = offices.includes('EM');
 
-  function renderBulkResults(results) {
     $('bulkTitle').textContent =
       `${results.length} name${results.length !== 1 ? 's' : ''} checked`;
+
+    // Dynamic column widths based on offices shown
+    const namePct   = 20;
+    const officePct = showUS && showEU ? 24 : 30;
+    const expandPct = 100 - namePct - (showUS ? officePct : 0) - (showEU ? officePct : 0);
+
+    $('bulkHead').innerHTML = `
+      <tr>
+        <th style="width:${namePct}%">Name</th>
+        ${showUS ? `<th style="width:${officePct}%">United States</th>` : ''}
+        ${showEU ? `<th style="width:${officePct}%">European Union</th>` : ''}
+        <th style="width:${expandPct}%"></th>
+      </tr>`;
 
     $('bulkBody').innerHTML = results.map((r, i) => {
       const us = r.data?.offices?.US;
@@ -814,8 +882,8 @@
       const summaryRow = `
         <tr>
           <td style="font-weight:700;font-size:14px">${x(r.name)}</td>
-          <td>${r.error ? errorPill() : riskPill(us?.risk)}</td>
-          <td>${r.error ? errorPill() : riskPill(eu?.risk)}</td>
+          ${showUS ? `<td>${r.error ? errorPill() : riskPill(us?.risk)}</td>` : ''}
+          ${showEU ? `<td>${r.error ? errorPill() : riskPill(eu?.risk)}</td>` : ''}
           <td>
             ${r.error
               ? `<span style="font-size:12px;color:#991b1b">${x(r.error)}</span>`
@@ -824,12 +892,12 @@
           </td>
         </tr>`;
 
-      const marks     = r.data ? buildAllMarks(r.data) : [];
+      const marks     = r.data ? buildAllMarks(r.data, offices) : [];
       const detailRow = `
         <tr class="detail-row hidden" id="detail-${i}">
-          <td colspan="4">
+          <td colspan="${1 + offices.length + 1}">
             <div class="detail-inner">
-              <div class="detail-title">${marks.length} mark${marks.length !== 1 ? 's' : ''} found for "${x(r.name)}"</div>
+              <div class="detail-title">${marks.length} mark${marks.length !== 1 ? 's' : ''} found for “${x(r.name)}”</div>
               ${marks.length > 0 ? marksTable(marks) : `<p style="font-size:13px;color:var(--gray-500)">No marks found.</p>`}
             </div>
           </td>
@@ -839,9 +907,9 @@
     }).join('');
   }
 
-  function buildAllMarks(data) {
+  function buildAllMarks(data, offices) {
     const marks = [];
-    ['US', 'EM'].forEach(code => {
+    offices.forEach(code => {
       const o = data.offices[code];
       if (o?.marks) marks.push(...o.marks.map(m => ({ ...m, _office: code })));
     });
@@ -851,15 +919,15 @@
   function marksTable(marks) {
     return `
       <div class="table-wrap" style="border-color:var(--gray-200)">
-        <table class="marks-table">
+        <table class="marks-table" style="table-layout:fixed">
           <thead>
             <tr>
               <th class="col-mark">Mark</th>
               <th class="col-office">Office</th>
-              <th class="col-type">Type</th>
-              <th class="col-holder">Holder</th>
-              <th class="col-cls">Classes</th>
-              <th class="col-reg">Registered</th>
+              <th class="col-type hide-mobile">Type</th>
+              <th class="col-holder hide-mobile">Holder</th>
+              <th class="col-cls hide-mobile">Classes</th>
+              <th class="col-reg hide-mobile">Registered</th>
               <th class="col-exp">Expires</th>
               <th class="col-status">Status</th>
             </tr>
@@ -869,10 +937,10 @@
               <tr>
                 <td class="mark-name">${x(r.name || '—')}</td>
                 <td><span class="office-chip">${x(r._office || r.office || '—')}</span></td>
-                <td>${typeChip(r.markFeature)}</td>
-                <td style="word-break:break-word">${x(r.holder || '—')}</td>
-                <td>${x(r.classes || '—')}</td>
-                <td style="white-space:nowrap">${x(r.regDate || '—')}</td>
+                <td class="hide-mobile">${typeChip(r.markFeature)}</td>
+                <td class="hide-mobile" style="word-break:break-word">${x(r.holder || '—')}</td>
+                <td class="hide-mobile">${x(r.classes || '—')}</td>
+                <td class="hide-mobile" style="white-space:nowrap">${x(r.regDate || '—')}</td>
                 <td style="white-space:nowrap">${expiryCell(r.expiryDate)}</td>
                 <td>${statusChip(r.status)}</td>
               </tr>`).join('')}
@@ -881,16 +949,17 @@
       </div>`;
   }
 
-  // ── Shared helpers ────────────────────────────
-
+  // ── Shared chip helpers ───────────────────────
   function riskPill(risk) {
     const map = {
-      red:     ['pill-red',    '●', 'Exact match'],
-      yellow:  ['pill-yellow', '●', 'Similar marks'],
-      green:   ['pill-green',  '●', 'Clear'],
-      unknown: ['pill-gray',   '●', 'Unknown'],
+      red:     'pill-red',
+      yellow:  'pill-yellow',
+      green:   'pill-green',
+      unknown: 'pill-gray',
     };
-    const [cls, , label] = map[risk] || map.unknown;
+    const labels = { red: 'Exact match', yellow: 'Similar marks', green: 'Clear', unknown: 'Unknown' };
+    const cls   = map[risk] || 'pill-gray';
+    const label = labels[risk] || 'Unknown';
     return `<span class="risk-pill ${cls}"><span class="pill-dot"></span>${label}</span>`;
   }
 
@@ -900,8 +969,7 @@
 
   function typeChip(f) {
     if (!f) return '<span class="type-chip">—</span>';
-    const label = f.charAt(0) + f.slice(1).toLowerCase();
-    return `<span class="type-chip">${x(label)}</span>`;
+    return `<span class="type-chip">${x(f.charAt(0) + f.slice(1).toLowerCase())}</span>`;
   }
 
   function expiryCell(d) {
