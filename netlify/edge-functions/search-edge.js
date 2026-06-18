@@ -1,11 +1,15 @@
 // Brand Name Check — Edge Function (Deno/Cloudflare)
-// Runs on Cloudflare's network so EUIPO's auth.euipo.europa.eu is reachable.
-// (AWS Lambda IPs are blocked by EUIPO's auth server; Cloudflare IPs are not.)
+// Runs on Cloudflare's network — required for EUIPO API access.
 //
-// Env vars (same as the Lambda function):
-//   PARSE_API_KEY       - free at parse.bot (USPTO data)
-//   EUIPO_CLIENT_ID     - API Key from dev.euipo.europa.eu app
-//   EUIPO_CLIENT_SECRET - API Secret from dev.euipo.europa.eu app
+// Env vars:
+//   PARSE_API_KEY              - free at parse.bot (USPTO data)
+//   EUIPO_SANDBOX_CLIENT_ID    - from dev-sandbox.euipo.europa.eu app
+//   EUIPO_SANDBOX_CLIENT_SECRET
+//
+// To switch to production when EUIPO fixes auth.euipo.europa.eu (currently returns 502):
+//   Replace EUIPO_SANDBOX_* env vars with EUIPO_CLIENT_ID / EUIPO_CLIENT_SECRET
+//   Change auth-sandbox.euipo.europa.eu → auth.euipo.europa.eu
+//   Change api-sandbox.euipo.europa.eu  → api.euipo.europa.eu
 
 const LIVE_KEYWORDS = [
   'registered', 'live', 'pending', 'published', 'filed', 'active',
@@ -57,7 +61,6 @@ export default async function handler(request) {
     if (settled.status === 'fulfilled') {
       result.offices[code] = { ...meta, ...buildOfficeResult(settled.value, q) };
     } else {
-      console.error(`[${code}] failed:`, settled.reason?.message);
       result.offices[code] = {
         ...meta,
         risk: 'unknown',
@@ -88,12 +91,10 @@ async function fetchUSPTO(query) {
     headers: { 'X-API-Key': apiKey, Accept: 'application/json', 'User-Agent': UA },
   });
   const body = await r.text();
-  console.log('[uspto] status:', r.status, 'body[:200]:', body.slice(0, 200));
   if (!r.ok) throw new Error(`Parse.bot HTTP ${r.status}: ${body.slice(0, 120)}`);
 
   const wrapper = JSON.parse(body);
   const data    = wrapper.data || wrapper;
-  console.log('[uspto] total:', data.total, 'returned:', data.trademarks?.length);
 
   return (data.trademarks || []).map(t => ({
     name:       t.wordmark || '',
@@ -107,25 +108,17 @@ async function fetchUSPTO(query) {
 }
 
 // ---------- EUIPO (sandbox) ----------
-// Using sandbox while production auth.euipo.europa.eu returns 502 (server-side issue at EUIPO).
-// Sandbox credentials are separate from production — set EUIPO_SANDBOX_CLIENT_ID and
-// EUIPO_SANDBOX_CLIENT_SECRET in Netlify env vars (from dev-sandbox.euipo.europa.eu).
-// When production auth is fixed, swap to EUIPO_CLIENT_ID + EUIPO_CLIENT_SECRET and
-// change both URLs back to api.euipo.europa.eu / auth.euipo.europa.eu.
+// Production auth.euipo.europa.eu returns 502 server-side — reported to EUIPO.
+// Sandbox uses representative sample data; not the full production register.
 
 async function fetchEUIPO(query) {
   const clientId     = Deno.env.get('EUIPO_SANDBOX_CLIENT_ID');
   const clientSecret = Deno.env.get('EUIPO_SANDBOX_CLIENT_SECRET');
   if (!clientId || !clientSecret) throw new Error('EUIPO not configured');
 
-  console.log('[euipo] fetching sandbox token, clientId:', clientId.slice(0, 8) + '...' + clientId.slice(-4));
-
   const tokenR = await fetch('https://auth-sandbox.euipo.europa.eu/oidc/accessToken', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent':   UA,
-    },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
     body: new URLSearchParams({
       client_id:     clientId,
       client_secret: clientSecret,
@@ -135,16 +128,12 @@ async function fetchEUIPO(query) {
   });
 
   const tokenText = await tokenR.text();
-  console.log('[euipo] token status:', tokenR.status, 'body[:200]:', tokenText.slice(0, 200));
   if (!tokenR.ok) throw new Error(`EUIPO token error ${tokenR.status}: ${tokenText.slice(0, 120)}`);
 
-  const token = JSON.parse(tokenText).access_token;
-
-  // Search using RSQL wildcard on verbalElement
+  const token  = JSON.parse(tokenText).access_token;
   const rsql   = `wordMarkSpecification.verbalElement==*${query}*`;
   const params = new URLSearchParams({ query: rsql, page: '0', size: '50' });
   const url    = `https://api-sandbox.euipo.europa.eu/trademark-search/trademarks?${params}`;
-  console.log('[euipo] GET', url);
 
   const r = await fetch(url, {
     headers: {
@@ -156,15 +145,11 @@ async function fetchEUIPO(query) {
   });
 
   const body = await r.text();
-  console.log('[euipo] search status:', r.status, 'body[:500]:', body.slice(0, 500));
   if (!r.ok) throw new Error(`EUIPO search HTTP ${r.status}: ${body.slice(0, 120)}`);
 
-  const data  = JSON.parse(body);
-  const items = data.trademarks || [];
-  console.log('[euipo] totalElements:', data.totalElements, 'returned:', items.length);
-
+  const items = JSON.parse(body).trademarks || [];
   return items.map(t => ({
-    name:       t.wordMarkSpecification?.verbalElement || '',
+    name:       t.wordMarkSpecification?.verbalElement?.trim() || '',
     holder:     (Array.isArray(t.applicants) ? t.applicants[0]?.name : '') || '',
     status:     t.status || '',
     appNumber:  t.applicationNumber || '',
@@ -175,7 +160,7 @@ async function fetchEUIPO(query) {
 }
 
 // ---------- PRV (Sweden) ----------
-// No public API exists — always returns unknown; user directed to search.prv.se.
+// No public API — user directed to search.prv.se.
 async function fetchPRV(_query) {
   throw new Error('Swedish PRV search unavailable in automated mode — verify at search.prv.se');
 }
