@@ -33,7 +33,6 @@
       flex-direction: column;
     }
 
-    /* ── Layout ─────────────────────────────── */
     .page {
       flex: 1;
       max-width: 1040px;
@@ -107,13 +106,44 @@
     .search-btn:hover    { opacity: 0.8; }
     .search-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .search-note {
+    .options-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       margin-top: 10px;
+      max-width: 600px;
+    }
+
+    .options-label {
+      font-size: 12px;
+      color: var(--gray-500);
+      white-space: nowrap;
+    }
+
+    .class-input {
+      width: 160px;
+      height: 30px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-family: inherit;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 4px;
+      background: var(--white);
+      color: var(--black);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+
+    .class-input:focus { border-color: var(--black); }
+    .class-input::placeholder { color: var(--gray-500); }
+
+    .search-note {
+      margin-top: 8px;
       font-size: 12px;
       color: var(--gray-500);
     }
 
-    /* ── Cards ─────────────────────────────── */
+    /* ── Cards (single mode) ────────────────── */
     .cards {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -145,11 +175,7 @@
       margin-bottom: 20px;
     }
 
-    .risk-indicator {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    .risk-indicator { display: flex; align-items: center; gap: 10px; }
 
     .risk-dot {
       width: 14px;
@@ -167,11 +193,7 @@
       transition: color 0.25s;
     }
 
-    .card-count {
-      margin-top: 14px;
-      font-size: 12px;
-      color: var(--gray-500);
-    }
+    .card-count { margin-top: 14px; font-size: 12px; color: var(--gray-500); }
 
     .card-verify {
       display: inline-block;
@@ -187,7 +209,6 @@
     }
     .card-verify:hover { opacity: 1; }
 
-    /* Risk states */
     .risk-green  .risk-dot   { background: #16a34a; }
     .risk-green  .risk-label { color: #166534; }
     .risk-yellow .risk-dot   { background: #d97706; }
@@ -195,7 +216,7 @@
     .risk-red    .risk-dot   { background: #dc2626; }
     .risk-red    .risk-label { color: #991b1b; }
 
-    /* ── PRV note bar ───────────────────────── */
+    /* ── Note bar ───────────────────────────── */
     .note-bar {
       font-size: 12px;
       color: var(--gray-500);
@@ -206,7 +227,6 @@
       padding: 10px 14px;
       margin-bottom: 48px;
     }
-
     .note-bar a { color: var(--black); }
 
     /* ── State boxes ─────────────────────────── */
@@ -254,13 +274,9 @@
       color: var(--gray-500);
     }
 
-    .legend-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
 
-    /* ── Results ─────────────────────────────── */
+    /* ── Shared table chrome ─────────────────── */
     .results-header {
       display: flex;
       align-items: baseline;
@@ -270,11 +286,7 @@
       flex-wrap: wrap;
     }
 
-    .results-title {
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-    }
+    .results-title { font-size: 14px; font-weight: 700; letter-spacing: 0.02em; }
 
     .filter-tabs { display: flex; gap: 4px; }
 
@@ -306,12 +318,7 @@
       overflow: hidden;
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-      table-layout: fixed;
-    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 
     thead th {
       padding: 10px 14px;
@@ -328,12 +335,9 @@
     tbody tr { border-bottom: 1px solid var(--gray-200); }
     tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: var(--gray-100); }
+    tbody td { padding: 11px 14px; vertical-align: top; }
 
-    tbody td {
-      padding: 11px 14px;
-      vertical-align: top;
-    }
-
+    /* ── Marks table columns ─────────────────── */
     .col-mark   { width: 16%; }
     .col-office { width: 7%;  }
     .col-type   { width: 10%; }
@@ -368,19 +372,88 @@
       border: 1px solid var(--gray-200);
     }
 
-    .status-chip {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
+    .status-chip { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .s-live      { background: var(--green-bg);  color: var(--green); }
+    .s-pending   { background: var(--yellow-bg); color: var(--yellow); }
+    .s-dead      { background: var(--gray-100);  color: var(--gray-500); }
+
+    .expiry-soon { color: var(--yellow); }
+
+    /* ── Bulk summary table ──────────────────── */
+    .bulk-wrap {
+      border: 1.5px solid var(--black);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 48px;
+    }
+
+    table.bulk-table { table-layout: fixed; }
+
+    .bcol-name   { width: 18%; }
+    .bcol-us     { width: 22%; }
+    .bcol-eu     { width: 22%; }
+    .bcol-expand { width: 38%; }
+
+    .risk-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 20px;
       font-size: 11px;
       font-weight: 600;
     }
 
-    .s-live    { background: var(--green-bg);  color: var(--green); }
-    .s-pending { background: var(--yellow-bg); color: var(--yellow); }
-    .s-dead    { background: var(--gray-100);  color: var(--gray-500); }
+    .pill-red    { background: var(--red-bg);    color: var(--red); }
+    .pill-yellow { background: var(--yellow-bg); color: var(--yellow); }
+    .pill-green  { background: var(--green-bg);  color: var(--green); }
+    .pill-gray   { background: var(--gray-100);  color: var(--gray-500); }
 
-    .expiry-soon { color: var(--yellow); }
+    .pill-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .pill-red    .pill-dot { background: #dc2626; }
+    .pill-yellow .pill-dot { background: #d97706; }
+    .pill-green  .pill-dot { background: #16a34a; }
+    .pill-gray   .pill-dot { background: var(--gray-500); }
+
+    .expand-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--black);
+      opacity: 0.45;
+      padding: 0;
+      transition: opacity 0.1s;
+    }
+    .expand-btn:hover, .expand-btn.open { opacity: 1; }
+
+    .detail-row td { padding: 0; }
+
+    .detail-inner {
+      padding: 16px 14px 18px;
+      background: var(--gray-100);
+      border-top: 1px solid var(--gray-200);
+    }
+
+    .detail-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 10px;
+    }
+
+    table.marks-table { table-layout: fixed; font-size: 12px; }
+    table.marks-table thead th {
+      background: var(--white);
+      font-size: 9px;
+      padding: 8px 10px;
+    }
+    table.marks-table tbody td { padding: 9px 10px; }
+    table.marks-table tbody tr:hover { background: var(--white); }
 
     .hidden { display: none !important; }
 
@@ -395,12 +468,7 @@
       color: var(--gray-500);
     }
 
-    .footer-bold {
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      color: var(--black);
-    }
+    .footer-bold { font-size: 14px; font-weight: 800; letter-spacing: -0.5px; color: var(--black); }
 
     @media (max-width: 680px) {
       .page { padding: 40px 20px 60px; }
@@ -425,28 +493,40 @@
         class="search-input"
         id="searchInput"
         type="text"
-        placeholder="Enter brand name"
+        placeholder="Enter brand name — or multiple, separated by commas"
         autocomplete="off"
         autocorrect="off"
         spellcheck="false"
       />
       <button class="search-btn" id="searchBtn">Check</button>
     </div>
-    <p class="search-note">Data via EUIPO &amp; USPTO &middot; Not legal advice</p>
+    <div class="options-row">
+      <span class="options-label">Nice classes</span>
+      <input
+        class="class-input"
+        id="classInput"
+        type="text"
+        placeholder="e.g. 9, 25, 42"
+        autocomplete="off"
+      />
+    </div>
+    <p class="search-note">Leave classes empty to search all &middot; Data via EUIPO &amp; USPTO &middot; Not legal advice</p>
   </div>
 
+  <!-- Loading -->
   <div class="state-box hidden" id="loadingState">
     <div class="spinner"></div>
-    <p>Searching trademark databases&hellip;</p>
+    <p id="loadingMsg">Searching trademark databases&hellip;</p>
   </div>
 
+  <!-- Error -->
   <div class="state-box hidden" id="errorState">
     <p style="font-weight:700;color:#991b1b">Search failed</p>
     <p class="error-text" id="errorMsg"></p>
   </div>
 
+  <!-- Single-name results -->
   <div id="resultsArea" class="hidden">
-
     <div class="cards" id="cards">
       <div class="card" id="card-US">
         <div class="card-jurisdiction">United States</div>
@@ -458,7 +538,6 @@
         <div class="card-count" id="count-US"></div>
         <a class="card-verify" href="https://tmsearch.uspto.gov/search/" target="_blank" rel="noopener">Verify at USPTO ↗</a>
       </div>
-
       <div class="card" id="card-EM">
         <div class="card-jurisdiction">European Union</div>
         <div class="card-office">EUIPO</div>
@@ -477,21 +556,12 @@
     </div>
 
     <div class="legend">
-      <div class="legend-item">
-        <div class="legend-dot" style="background:#16a34a"></div>
-        <span>No live marks found</span>
-      </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background:#d97706"></div>
-        <span>Similar marks exist — review needed</span>
-      </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background:#dc2626"></div>
-        <span>Exact name registered</span>
-      </div>
+      <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div><span>No live marks found</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div><span>Similar marks exist — review needed</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#dc2626"></div><span>Exact name registered</span></div>
     </div>
 
-    <div id="resultsSection">
+    <div id="singleSection">
       <div class="results-header">
         <div class="results-title" id="resultsTitle"></div>
         <div class="filter-tabs" id="filterTabs">
@@ -518,7 +588,38 @@
         </table>
       </div>
     </div>
+  </div>
 
+  <!-- Bulk results -->
+  <div id="bulkArea" class="hidden">
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div><span>No live marks found</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div><span>Similar marks exist</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#dc2626"></div><span>Exact name registered</span></div>
+    </div>
+
+    <div class="results-header">
+      <div class="results-title" id="bulkTitle"></div>
+    </div>
+
+    <div class="bulk-wrap">
+      <table class="bulk-table">
+        <thead>
+          <tr>
+            <th class="bcol-name">Name</th>
+            <th class="bcol-us">United States</th>
+            <th class="bcol-eu">European Union</th>
+            <th class="bcol-expand"></th>
+          </tr>
+        </thead>
+        <tbody id="bulkBody"></tbody>
+      </table>
+    </div>
+
+    <div class="note-bar" style="margin-top:-46px">
+      Sweden (PRV): no automated API available — verify at
+      <a href="https://search.prv.se/#/trademark" target="_blank" rel="noopener">search.prv.se</a>
+    </div>
   </div>
 
 </div>
@@ -530,13 +631,14 @@
 </footer>
 
 <script>
-  let allRows = [];
+  let allRows     = [];
   let activeFilter = 'ALL';
 
   const $ = id => document.getElementById(id);
 
   $('searchBtn').addEventListener('click', run);
   $('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+  $('classInput').addEventListener('keydown',  e => { if (e.key === 'Enter') run(); });
 
   $('filterTabs').querySelectorAll('.filter-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -547,55 +649,114 @@
     });
   });
 
+  $('bulkBody').addEventListener('click', e => {
+    const btn = e.target.closest('.expand-btn');
+    if (!btn) return;
+    const idx       = btn.dataset.idx;
+    const detailRow = $(`detail-${idx}`);
+    const isOpen    = !detailRow.classList.contains('hidden');
+    detailRow.classList.toggle('hidden', isOpen);
+    btn.textContent = isOpen ? 'Show marks ↓' : 'Hide marks ↑';
+    btn.classList.toggle('open', !isOpen);
+  });
+
+  function parseClasses() {
+    const raw = $('classInput').value.trim();
+    if (!raw) return [];
+    return raw.split(',').map(c => c.trim()).filter(c => /^\d+$/.test(c));
+  }
+
+  function buildApiUrl(name, classes) {
+    const params = new URLSearchParams({ q: name });
+    if (classes.length > 0) params.set('classes', classes.join(','));
+    return `/api/search?${params}`;
+  }
+
   async function run() {
-    const q = $('searchInput').value.trim();
-    if (!q || q.length < 2) { $('searchInput').focus(); return; }
+    const raw = $('searchInput').value.trim();
+    if (!raw || raw.length < 2) { $('searchInput').focus(); return; }
+
+    const names   = raw.split(',').map(n => n.trim()).filter(n => n.length >= 2);
+    const classes = parseClasses();
+
+    if (names.length === 0) { $('searchInput').focus(); return; }
+
+    if (names.length === 1) {
+      await runSingle(names[0], classes);
+    } else {
+      await runBulk(names, classes);
+    }
+  }
+
+  async function runSingle(name, classes) {
     setState('loading');
     try {
-      const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const res  = await fetch(buildApiUrl(name, classes));
       const data = await res.json();
       if (!res.ok) throw new Error((data.error || 'Unknown error') + (data.detail ? ` — ${data.detail}` : ''));
-      setState('results', data);
+      setState('single', data);
     } catch (err) {
       setState('error', err.message);
     }
   }
 
-  function setState(mode, payload) {
+  async function runBulk(names, classes) {
+    setState('loading', null, `Checking ${names.length} names…`);
+    try {
+      const results = await Promise.all(names.map(async name => {
+        try {
+          const res  = await fetch(buildApiUrl(name, classes));
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Search failed');
+          return { name, data, error: null };
+        } catch (err) {
+          return { name, data: null, error: err.message };
+        }
+      }));
+      setState('bulk', results);
+    } catch (err) {
+      setState('error', err.message);
+    }
+  }
+
+  function setState(mode, payload, msg) {
     $('searchBtn').disabled    = mode === 'loading';
     $('searchBtn').textContent = mode === 'loading' ? 'Checking…' : 'Check';
     $('loadingState').classList.add('hidden');
     $('errorState').classList.add('hidden');
     $('resultsArea').classList.add('hidden');
+    $('bulkArea').classList.add('hidden');
 
     if (mode === 'loading') {
+      if (msg) $('loadingMsg').textContent = msg;
       $('loadingState').classList.remove('hidden');
     } else if (mode === 'error') {
       $('errorMsg').textContent = payload;
       $('errorState').classList.remove('hidden');
-    } else {
-      renderResults(payload);
+    } else if (mode === 'single') {
+      renderSingleResults(payload);
       $('resultsArea').classList.remove('hidden');
+    } else if (mode === 'bulk') {
+      renderBulkResults(payload);
+      $('bulkArea').classList.remove('hidden');
     }
   }
 
+  // ── Single-name rendering ─────────────────────
+
   const RISK_LABELS = {
-    green:   'No live marks found',
-    yellow:  'Similar marks exist',
-    red:     'Exact match found',
-    unknown: 'Unknown',
+    green: 'No live marks found', yellow: 'Similar marks exist',
+    red: 'Exact match found', unknown: 'Unknown',
   };
 
-  function renderResults(data) {
+  function renderSingleResults(data) {
     ['US', 'EM'].forEach(code => {
       const o = data.offices[code];
       if (!o) return;
-      const card = $(`card-${code}`);
-      card.className = `card risk-${o.risk}`;
+      $(`card-${code}`).className = `card risk-${o.risk}`;
       $(`label-${code}`).textContent = RISK_LABELS[o.risk] || o.risk;
       $(`count-${code}`).textContent = o.totalMatches === 0
-        ? 'No matches'
-        : `${o.liveCount} live · ${o.totalMatches} total`;
+        ? 'No matches' : `${o.liveCount} live · ${o.totalMatches} total`;
     });
 
     allRows = [];
@@ -638,6 +799,103 @@
         <td style="white-space:nowrap">${expiryCell(r.expiryDate)}</td>
         <td>${statusChip(r.status)}</td>
       </tr>`).join('');
+  }
+
+  // ── Bulk rendering ────────────────────────────
+
+  function renderBulkResults(results) {
+    $('bulkTitle').textContent =
+      `${results.length} name${results.length !== 1 ? 's' : ''} checked`;
+
+    $('bulkBody').innerHTML = results.map((r, i) => {
+      const us = r.data?.offices?.US;
+      const eu = r.data?.offices?.EM;
+
+      const summaryRow = `
+        <tr>
+          <td style="font-weight:700;font-size:14px">${x(r.name)}</td>
+          <td>${r.error ? errorPill() : riskPill(us?.risk)}</td>
+          <td>${r.error ? errorPill() : riskPill(eu?.risk)}</td>
+          <td>
+            ${r.error
+              ? `<span style="font-size:12px;color:#991b1b">${x(r.error)}</span>`
+              : `<button class="expand-btn" data-idx="${i}">Show marks ↓</button>`
+            }
+          </td>
+        </tr>`;
+
+      const marks     = r.data ? buildAllMarks(r.data) : [];
+      const detailRow = `
+        <tr class="detail-row hidden" id="detail-${i}">
+          <td colspan="4">
+            <div class="detail-inner">
+              <div class="detail-title">${marks.length} mark${marks.length !== 1 ? 's' : ''} found for "${x(r.name)}"</div>
+              ${marks.length > 0 ? marksTable(marks) : `<p style="font-size:13px;color:var(--gray-500)">No marks found.</p>`}
+            </div>
+          </td>
+        </tr>`;
+
+      return summaryRow + detailRow;
+    }).join('');
+  }
+
+  function buildAllMarks(data) {
+    const marks = [];
+    ['US', 'EM'].forEach(code => {
+      const o = data.offices[code];
+      if (o?.marks) marks.push(...o.marks.map(m => ({ ...m, _office: code })));
+    });
+    return marks;
+  }
+
+  function marksTable(marks) {
+    return `
+      <div class="table-wrap" style="border-color:var(--gray-200)">
+        <table class="marks-table">
+          <thead>
+            <tr>
+              <th class="col-mark">Mark</th>
+              <th class="col-office">Office</th>
+              <th class="col-type">Type</th>
+              <th class="col-holder">Holder</th>
+              <th class="col-cls">Classes</th>
+              <th class="col-reg">Registered</th>
+              <th class="col-exp">Expires</th>
+              <th class="col-status">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${marks.map(r => `
+              <tr>
+                <td class="mark-name">${x(r.name || '—')}</td>
+                <td><span class="office-chip">${x(r._office || r.office || '—')}</span></td>
+                <td>${typeChip(r.markFeature)}</td>
+                <td style="word-break:break-word">${x(r.holder || '—')}</td>
+                <td>${x(r.classes || '—')}</td>
+                <td style="white-space:nowrap">${x(r.regDate || '—')}</td>
+                <td style="white-space:nowrap">${expiryCell(r.expiryDate)}</td>
+                <td>${statusChip(r.status)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  // ── Shared helpers ────────────────────────────
+
+  function riskPill(risk) {
+    const map = {
+      red:     ['pill-red',    '●', 'Exact match'],
+      yellow:  ['pill-yellow', '●', 'Similar marks'],
+      green:   ['pill-green',  '●', 'Clear'],
+      unknown: ['pill-gray',   '●', 'Unknown'],
+    };
+    const [cls, , label] = map[risk] || map.unknown;
+    return `<span class="risk-pill ${cls}"><span class="pill-dot"></span>${label}</span>`;
+  }
+
+  function errorPill() {
+    return `<span class="risk-pill pill-gray"><span class="pill-dot"></span>Error</span>`;
   }
 
   function typeChip(f) {

@@ -43,9 +43,15 @@ export default async function handler(request) {
     );
   }
 
+  // Optional Nice class filter — comma-separated integers e.g. "9,42"
+  const classesParam = url.searchParams.get('classes') || '';
+  const classFilter  = classesParam
+    ? classesParam.split(',').map(c => parseInt(c.trim(), 10)).filter(n => !isNaN(n))
+    : [];
+
   const [euResult, usResult, seResult] = await Promise.allSettled([
-    fetchEUIPO(q),
-    fetchUSPTO(q),
+    fetchEUIPO(q, classFilter),
+    fetchUSPTO(q, classFilter),
     fetchPRV(q),
   ]);
 
@@ -75,7 +81,7 @@ export default async function handler(request) {
 
 // ---------- USPTO via Parse.bot ----------
 
-async function fetchUSPTO(query) {
+async function fetchUSPTO(query, classFilter = []) {
   const apiKey = Deno.env.get('PARSE_API_KEY');
   if (!apiKey) throw new Error('USPTO not configured - add PARSE_API_KEY');
 
@@ -91,7 +97,7 @@ async function fetchUSPTO(query) {
   const wrapper = JSON.parse(body);
   const data    = wrapper.data || wrapper;
 
-  return (data.trademarks || []).map(t => ({
+  let marks = (data.trademarks || []).map(t => ({
     name:       t.wordmark || '',
     holder:     Array.isArray(t.owner_name) ? (t.owner_name[0] || '') : (t.owner_name || ''),
     status:     t.status || '',
@@ -99,12 +105,19 @@ async function fetchUSPTO(query) {
     filingDate: fmtDate(t.filed_date || t.registration_date || ''),
     classes:    arrToStr(t.international_class || []),
     office:     'US',
+    _cls:       (t.international_class || []).map(c => parseInt(String(c), 10)),
   }));
+
+  if (classFilter.length > 0) {
+    marks = marks.filter(m => m._cls.some(c => classFilter.includes(c)));
+  }
+
+  return marks.map(({ _cls, ...m }) => m);
 }
 
 // ---------- EUIPO (production) ----------
 
-async function fetchEUIPO(query) {
+async function fetchEUIPO(query, classFilter = []) {
   const clientId     = Deno.env.get('EUIPO_CLIENT_ID');
   const clientSecret = Deno.env.get('EUIPO_CLIENT_SECRET');
   if (!clientId || !clientSecret) throw new Error('EUIPO not configured');
@@ -141,18 +154,25 @@ async function fetchEUIPO(query) {
   const body = await r.text();
   if (!r.ok) throw new Error(`EUIPO search HTTP ${r.status}: ${body.slice(0, 120)}`);
 
-  const items = JSON.parse(body).trademarks || [];
+  let items = JSON.parse(body).trademarks || [];
+
+  if (classFilter.length > 0) {
+    items = items.filter(t =>
+      (t.niceClasses || []).some(c => classFilter.includes(c))
+    );
+  }
+
   return items.map(t => ({
-    name:         t.wordMarkSpecification?.verbalElement?.trim() || '',
-    holder:       (Array.isArray(t.applicants) ? t.applicants[0]?.name : '') || '',
-    status:       t.status || '',
-    appNumber:    t.applicationNumber || '',
-    filingDate:   fmtDate(t.applicationDate || ''),
-    regDate:      fmtDate(t.registrationDate || ''),
-    expiryDate:   fmtDate(t.expiryDate || ''),
-    markFeature:  t.markFeature || '',
-    classes:      arrToStr(t.niceClasses || []),
-    office:       'EM',
+    name:        t.wordMarkSpecification?.verbalElement?.trim() || '',
+    holder:      (Array.isArray(t.applicants) ? t.applicants[0]?.name : '') || '',
+    status:      t.status || '',
+    appNumber:   t.applicationNumber || '',
+    filingDate:  fmtDate(t.applicationDate || ''),
+    regDate:     fmtDate(t.registrationDate || ''),
+    expiryDate:  fmtDate(t.expiryDate || ''),
+    markFeature: t.markFeature || '',
+    classes:     arrToStr(t.niceClasses || []),
+    office:      'EM',
   }));
 }
 
