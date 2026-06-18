@@ -2,14 +2,9 @@
 // Runs on Cloudflare's network — required for EUIPO API access.
 //
 // Env vars:
-//   PARSE_API_KEY              - free at parse.bot (USPTO data)
-//   EUIPO_SANDBOX_CLIENT_ID    - from dev-sandbox.euipo.europa.eu app
-//   EUIPO_SANDBOX_CLIENT_SECRET
-//
-// To switch to production when EUIPO fixes auth.euipo.europa.eu (currently returns 502):
-//   Replace EUIPO_SANDBOX_* env vars with EUIPO_CLIENT_ID / EUIPO_CLIENT_SECRET
-//   Change auth-sandbox.euipo.europa.eu → auth.euipo.europa.eu
-//   Change api-sandbox.euipo.europa.eu  → api.euipo.europa.eu
+//   PARSE_API_KEY       - free at parse.bot (USPTO data)
+//   EUIPO_CLIENT_ID     - from dev.euipo.europa.eu app
+//   EUIPO_CLIENT_SECRET
 
 const LIVE_KEYWORDS = [
   'registered', 'live', 'pending', 'published', 'filed', 'active',
@@ -107,16 +102,14 @@ async function fetchUSPTO(query) {
   }));
 }
 
-// ---------- EUIPO (sandbox) ----------
-// Production auth.euipo.europa.eu returns 502 server-side — reported to EUIPO.
-// Sandbox uses representative sample data; not the full production register.
+// ---------- EUIPO (production) ----------
 
 async function fetchEUIPO(query) {
-  const clientId     = Deno.env.get('EUIPO_SANDBOX_CLIENT_ID');
-  const clientSecret = Deno.env.get('EUIPO_SANDBOX_CLIENT_SECRET');
+  const clientId     = Deno.env.get('EUIPO_CLIENT_ID');
+  const clientSecret = Deno.env.get('EUIPO_CLIENT_SECRET');
   if (!clientId || !clientSecret) throw new Error('EUIPO not configured');
 
-  const tokenR = await fetch('https://auth-sandbox.euipo.europa.eu/oidc/accessToken', {
+  const tokenR = await fetch('https://auth.euipo.europa.eu/oidc/accessToken', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
     body: new URLSearchParams({
@@ -128,12 +121,13 @@ async function fetchEUIPO(query) {
   });
 
   const tokenText = await tokenR.text();
+  console.log('[euipo] token status:', tokenR.status, tokenR.status !== 200 ? tokenText.slice(0, 200) : '');
   if (!tokenR.ok) throw new Error(`EUIPO token error ${tokenR.status}: ${tokenText.slice(0, 120)}`);
 
   const token  = JSON.parse(tokenText).access_token;
   const rsql   = `wordMarkSpecification.verbalElement==*${query}*`;
   const params = new URLSearchParams({ query: rsql, page: '0', size: '50' });
-  const url    = `https://api-sandbox.euipo.europa.eu/trademark-search/trademarks?${params}`;
+  const url    = `https://api.euipo.europa.eu/trademark-search/trademarks?${params}`;
 
   const r = await fetch(url, {
     headers: {
