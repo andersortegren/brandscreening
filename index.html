@@ -207,7 +207,8 @@
       overflow: hidden;
     }
 
-    .cards.one-col { grid-template-columns: 1fr; }
+    .cards.one-col   { grid-template-columns: 1fr; }
+    .cards.three-col { grid-template-columns: repeat(3, 1fr); }
 
     .card {
       background: var(--white);
@@ -508,7 +509,7 @@
 
   <header class="site-header">
     <h1>Brand Name Check</h1>
-    <p>Trademark screening across US and EU</p>
+    <p>Trademark screening across US, EU and Sweden (PRV)</p>
   </header>
 
   <div class="search-area">
@@ -530,6 +531,7 @@
         <span class="options-label">Offices</span>
         <label class="check-label"><input type="checkbox" id="checkUS" checked> US</label>
         <label class="check-label"><input type="checkbox" id="checkEU" checked> EU</label>
+        <label class="check-label"><input type="checkbox" id="checkSE" checked> SE</label>
       </div>
       <div class="option-group">
         <span class="options-label">Nice classes</span>
@@ -537,7 +539,7 @@
       </div>
     </div>
 
-    <p class="search-note">Data via EUIPO &amp; USPTO &middot; Not legal advice</p>
+    <p class="search-note">Data via EUIPO, USPTO &amp; PRV &middot; Not legal advice</p>
   </div>
 
   <!-- Loading -->
@@ -576,11 +578,16 @@
         <div class="card-count" id="count-EM"></div>
         <a class="card-verify" href="https://euipo.europa.eu/eSearch/#advanced/trademarks" target="_blank" rel="noopener">Verify at EUIPO ↗</a>
       </div>
-    </div>
-
-    <div class="note-bar">
-      Sweden (PRV): no automated API available — verify at
-      <a href="https://search.prv.se/#/trademark" target="_blank" rel="noopener">search.prv.se</a>
+      <div class="card" id="card-SE">
+        <div class="card-jurisdiction">Sweden</div>
+        <div class="card-office">PRV</div>
+        <div class="risk-indicator">
+          <div class="risk-dot"></div>
+          <span class="risk-label" id="label-SE">—</span>
+        </div>
+        <div class="card-count" id="count-SE"></div>
+        <a class="card-verify" href="https://search.prv.se/#/trademark" target="_blank" rel="noopener">Verify at PRV ↗</a>
+      </div>
     </div>
 
     <div class="legend">
@@ -596,6 +603,7 @@
           <button class="filter-tab active" data-office="ALL">All</button>
           <button class="filter-tab" data-office="US">US</button>
           <button class="filter-tab" data-office="EM">EU</button>
+          <button class="filter-tab" data-office="SE">SE</button>
         </div>
       </div>
       <div class="table-wrap">
@@ -639,11 +647,6 @@
       </table>
     </div>
 
-    <div class="note-bar" style="margin-top:-38px">
-      Sweden (PRV): no automated API available — verify at
-      <a href="https://search.prv.se/#/trademark" target="_blank" rel="noopener">search.prv.se</a>
-    </div>
-
   </div>
 
 </div>
@@ -667,9 +670,10 @@
 
   $('checkUS').addEventListener('change', validateOffices);
   $('checkEU').addEventListener('change', validateOffices);
+  $('checkSE').addEventListener('change', validateOffices);
 
   function validateOffices() {
-    const any = $('checkUS').checked || $('checkEU').checked;
+    const any = $('checkUS').checked || $('checkEU').checked || $('checkSE').checked;
     $('searchBtn').disabled = !any;
   }
 
@@ -698,6 +702,7 @@
     const o = [];
     if ($('checkUS').checked) o.push('US');
     if ($('checkEU').checked) o.push('EM');
+    if ($('checkSE').checked) o.push('SE');
     return o;
   }
 
@@ -795,13 +800,18 @@
     const showUS = offices.includes('US');
     const showEU = offices.includes('EM');
 
+    const showSE = offices.includes('SE');
+
     $('card-US').classList.toggle('hidden', !showUS);
     $('card-EM').classList.toggle('hidden', !showEU);
-    $('cards').classList.toggle('one-col', offices.length === 1);
+    $('card-SE').classList.toggle('hidden', !showSE);
+    $('cards').classList.toggle('one-col',   offices.length === 1);
+    $('cards').classList.toggle('three-col', offices.length === 3);
 
     // Update filter tabs
     $('filterTabs').querySelector('[data-office="US"]').classList.toggle('hidden', !showUS);
     $('filterTabs').querySelector('[data-office="EM"]').classList.toggle('hidden', !showEU);
+    $('filterTabs').querySelector('[data-office="SE"]').classList.toggle('hidden', !showSE);
 
     offices.forEach(code => {
       const o = data.offices[code];
@@ -858,32 +868,36 @@
   function renderBulkResults(results, offices) {
     const showUS = offices.includes('US');
     const showEU = offices.includes('EM');
+    const showSE = offices.includes('SE');
+    const officeCount = [showUS, showEU, showSE].filter(Boolean).length;
 
     $('bulkTitle').textContent =
       `${results.length} name${results.length !== 1 ? 's' : ''} checked`;
 
-    // Dynamic column widths based on offices shown
     const namePct   = 20;
-    const officePct = showUS && showEU ? 24 : 30;
-    const expandPct = 100 - namePct - (showUS ? officePct : 0) - (showEU ? officePct : 0);
+    const officePct = officeCount >= 3 ? 20 : officeCount === 2 ? 24 : 30;
+    const expandPct = 100 - namePct - (showUS ? officePct : 0) - (showEU ? officePct : 0) - (showSE ? officePct : 0);
 
     $('bulkHead').innerHTML = `
       <tr>
         <th style="width:${namePct}%">Name</th>
         ${showUS ? `<th style="width:${officePct}%">United States</th>` : ''}
         ${showEU ? `<th style="width:${officePct}%">European Union</th>` : ''}
+        ${showSE ? `<th style="width:${officePct}%">Sweden</th>` : ''}
         <th style="width:${expandPct}%"></th>
       </tr>`;
 
     $('bulkBody').innerHTML = results.map((r, i) => {
       const us = r.data?.offices?.US;
       const eu = r.data?.offices?.EM;
+      const se = r.data?.offices?.SE;
 
       const summaryRow = `
         <tr>
           <td style="font-weight:700;font-size:14px">${x(r.name)}</td>
           ${showUS ? `<td>${r.error ? errorPill() : riskPill(us?.risk)}</td>` : ''}
           ${showEU ? `<td>${r.error ? errorPill() : riskPill(eu?.risk)}</td>` : ''}
+          ${showSE ? `<td>${r.error ? errorPill() : riskPill(se?.risk)}</td>` : ''}
           <td>
             ${r.error
               ? `<span style="font-size:12px;color:#991b1b">${x(r.error)}</span>`
@@ -895,7 +909,7 @@
       const marks     = r.data ? buildAllMarks(r.data, offices) : [];
       const detailRow = `
         <tr class="detail-row hidden" id="detail-${i}">
-          <td colspan="${1 + offices.length + 1}">
+          <td colspan="${1 + officeCount + 1}">
             <div class="detail-inner">
               <div class="detail-title">${marks.length} mark${marks.length !== 1 ? 's' : ''} found for “${x(r.name)}”</div>
               ${marks.length > 0 ? marksTable(marks) : `<p style="font-size:13px;color:var(--gray-500)">No marks found.</p>`}

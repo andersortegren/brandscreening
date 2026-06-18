@@ -2,9 +2,11 @@
 // Runs on Cloudflare's network — required for EUIPO API access.
 //
 // Env vars:
-//   PARSE_API_KEY       - free at parse.bot (USPTO data)
-//   EUIPO_CLIENT_ID     - from dev.euipo.europa.eu app
+//   PARSE_API_KEY         - free at parse.bot (USPTO data)
+//   EUIPO_CLIENT_ID       - from dev.euipo.europa.eu app
 //   EUIPO_CLIENT_SECRET
+//   SUPABASE_URL          - https://xxxx.supabase.co  (PRV data)
+//   SUPABASE_ANON_KEY     - public anon key from Supabase dashboard
 
 const LIVE_KEYWORDS = [
   'registered', 'live', 'pending', 'published', 'filed', 'active',
@@ -52,7 +54,7 @@ export default async function handler(request) {
   const [euResult, usResult, seResult] = await Promise.allSettled([
     fetchEUIPO(q, classFilter),
     fetchUSPTO(q, classFilter),
-    fetchPRV(q),
+    fetchPRV(q, classFilter),
   ]);
 
   const result = { query: q, offices: {} };
@@ -72,9 +74,6 @@ export default async function handler(request) {
       };
     }
   }
-
-  result.offices.SE.note      = 'No automated API available — verify at search.prv.se';
-  result.offices.SE.verifyUrl = 'https://search.prv.se/#/trademark';
 
   return new Response(JSON.stringify(result), { status: 200, headers: CORS });
 }
@@ -176,10 +175,53 @@ async function fetchEUIPO(query, classFilter = []) {
   }));
 }
 
-// ---------- PRV (Sweden) ----------
-// No public API — user directed to search.prv.se.
-async function fetchPRV(_query) {
-  throw new Error('Swedish PRV search unavailable in automated mode — verify at search.prv.se');
+// ---------- PRV (Sweden) via Supabase ----------
+
+async function fetchPRV(query, classFilter = []) {
+  const supabaseUrl = (Deno.env.get('SUPABASE_URL') || '').replace(/\/$/, '');
+  const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
+  if (!supabaseUrl || !supabaseKey) throw new Error('SE/PRV not configured — add SUPABASE_URL and SUPABASE_ANON_KEY');
+
+  // Escape PostgREST ilike wildcards in the query
+  const escaped = query.replace(/[%_*]/g, c => `\\${c}`);
+  const params  = new URLSearchParams({
+    select:    '*',
+    mark_text: `ilike.*${escaped}*`,
+    limit:     '50',
+    order:     'mark_text.asc',
+  });
+  const url = `${supabaseUrl}/rest/v1/se_trademarks?${params}`;
+
+  const r = await fetch(url, {
+    headers: {
+      'apikey':        supabaseKey,
+      'Authorization': `Bearer ${supabaseKey}`,
+      'Accept':        'application/json',
+    },
+  });
+  const body = await r.text();
+  if (!r.ok) throw new Error(`Supabase HTTP ${r.status}: ${body.slice(0, 120)}`);
+
+  let rows = JSON.parse(body);
+
+  if (classFilter.length > 0) {
+    rows = rows.filter(row =>
+      (row.nice_classes || []).some(c => classFilter.includes(c))
+    );
+  }
+
+  return rows.map(row => ({
+    name:        row.mark_text        || '',
+    holder:      row.applicant_name   || '',
+    status:      row.mark_status      || '',
+    appNumber:   row.application_number || '',
+    filingDate:  row.application_date  || '',
+    regDate:     row.registration_date || '',
+    expiryDate:  row.expiry_date       || '',
+    markFeature: row.mark_feature      || '',
+    classes:     (row.nice_classes || []).join(', '),
+    office:      'SE',
+  }));
 }
 
 // ---------- helpers ----------
