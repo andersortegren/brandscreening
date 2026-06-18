@@ -8,18 +8,18 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --white:  #ffffff;
-      --black:  #000000;
-      --gray-100: #f5f5f3;
-      --gray-200: #e8e8e5;
-      --gray-500: #888884;
-      --green:  #166534;
-      --green-bg: #f0fdf4;
-      --yellow: #92400e;
-      --yellow-bg: #fffbeb;
-      --red:    #991b1b;
-      --red-bg: #fff1f2;
-      --radius: 8px;
+      --white:      #ffffff;
+      --black:      #000000;
+      --gray-100:   #f5f5f3;
+      --gray-200:   #e8e8e5;
+      --gray-500:   #888884;
+      --green:      #166534;
+      --green-bg:   #f0fdf4;
+      --yellow:     #92400e;
+      --yellow-bg:  #fffbeb;
+      --red:        #991b1b;
+      --red-bg:     #fff1f2;
+      --radius:     8px;
     }
 
     html { font-size: 16px; }
@@ -60,17 +60,13 @@
     .site-header p {
       font-size: 15px;
       color: var(--gray-500);
-      font-weight: 400;
     }
 
     /* ── Search ─────────────────────────────── */
-    .search-area {
-      margin-bottom: 64px;
-    }
+    .search-area { margin-bottom: 64px; }
 
     .search-row {
       display: flex;
-      gap: 0;
       border: 1.5px solid var(--black);
       border-radius: var(--radius);
       overflow: hidden;
@@ -108,7 +104,7 @@
       white-space: nowrap;
     }
 
-    .search-btn:hover   { opacity: 0.8; }
+    .search-btn:hover    { opacity: 0.8; }
     .search-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .search-note {
@@ -120,7 +116,7 @@
     /* ── Cards ─────────────────────────────── */
     .cards {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 2px;
       margin-bottom: 2px;
       background: var(--black);
@@ -132,7 +128,6 @@
     .card {
       background: var(--white);
       padding: 28px 26px 24px;
-      position: relative;
     }
 
     .card-jurisdiction {
@@ -193,38 +188,14 @@
     .card-verify:hover { opacity: 1; }
 
     /* Risk states */
-    .risk-green .risk-dot   { background: #16a34a; }
-    .risk-green .risk-label { color: #166534; }
-
-    .risk-yellow .risk-dot  { background: #d97706; }
+    .risk-green  .risk-dot   { background: #16a34a; }
+    .risk-green  .risk-label { color: #166534; }
+    .risk-yellow .risk-dot   { background: #d97706; }
     .risk-yellow .risk-label { color: #92400e; }
+    .risk-red    .risk-dot   { background: #dc2626; }
+    .risk-red    .risk-label { color: #991b1b; }
 
-    .risk-red .risk-dot    { background: #dc2626; }
-    .risk-red .risk-label  { color: #991b1b; }
-
-    /* ── Legend ─────────────────────────────── */
-    .legend {
-      display: flex;
-      gap: 28px;
-      margin-bottom: 48px;
-      flex-wrap: wrap;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--gray-500);
-    }
-
-    .legend-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    }
-
-    /* ── SE note ─────────────────────────────── */
+    /* ── PRV note bar ───────────────────────── */
     .note-bar {
       font-size: 12px;
       color: var(--gray-500);
@@ -267,6 +238,28 @@
       word-break: break-word;
     }
 
+    /* ── Legend ─────────────────────────────── */
+    .legend {
+      display: flex;
+      gap: 28px;
+      margin-bottom: 48px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--gray-500);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
     /* ── Results ─────────────────────────────── */
     .results-header {
       display: flex;
@@ -283,10 +276,7 @@
       letter-spacing: 0.02em;
     }
 
-    .filter-tabs {
-      display: flex;
-      gap: 4px;
-    }
+    .filter-tabs { display: flex; gap: 4px; }
 
     .filter-tab {
       padding: 4px 12px;
@@ -320,6 +310,7 @@
       width: 100%;
       border-collapse: collapse;
       font-size: 13px;
+      table-layout: fixed;
     }
 
     thead th {
@@ -343,6 +334,15 @@
       vertical-align: top;
     }
 
+    .col-mark   { width: 16%; }
+    .col-office { width: 7%;  }
+    .col-type   { width: 10%; }
+    .col-holder { width: 20%; }
+    .col-cls    { width: 10%; }
+    .col-reg    { width: 11%; }
+    .col-exp    { width: 11%; }
+    .col-status { width: 15%; }
+
     .mark-name { font-weight: 700; }
 
     .office-chip {
@@ -357,6 +357,17 @@
       border: 1px solid var(--gray-200);
     }
 
+    .type-chip {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      background: var(--gray-100);
+      color: var(--gray-500);
+      border: 1px solid var(--gray-200);
+    }
+
     .status-chip {
       display: inline-block;
       padding: 2px 8px;
@@ -364,9 +375,12 @@
       font-size: 11px;
       font-weight: 600;
     }
-    .s-live    { background: var(--green-bg); color: var(--green); }
+
+    .s-live    { background: var(--green-bg);  color: var(--green); }
     .s-pending { background: var(--yellow-bg); color: var(--yellow); }
-    .s-dead    { background: var(--gray-100); color: var(--gray-500); }
+    .s-dead    { background: var(--gray-100);  color: var(--gray-500); }
+
+    .expiry-soon { color: var(--yellow); }
 
     .hidden { display: none !important; }
 
@@ -390,9 +404,9 @@
 
     @media (max-width: 680px) {
       .page { padding: 40px 20px 60px; }
-      .cards { grid-template-columns: 1fr; gap: 2px; }
+      .cards { grid-template-columns: 1fr; }
       .site-header h1 { font-size: 36px; }
-      footer { padding: 16px 20px; }
+      footer { padding: 16px 20px; flex-direction: column; gap: 8px; text-align: center; }
     }
   </style>
 </head>
@@ -400,13 +414,11 @@
 
 <div class="page">
 
-  <!-- Header -->
   <header class="site-header">
     <h1>Brand Name Check</h1>
-    <p>Trademark screening across US, EU, and Sweden</p>
+    <p>Trademark screening across US and EU</p>
   </header>
 
-  <!-- Search -->
   <div class="search-area">
     <div class="search-row">
       <input
@@ -420,25 +432,21 @@
       />
       <button class="search-btn" id="searchBtn">Check</button>
     </div>
-    <p class="search-note">Data via EUIPO eSearch &amp; USPTO &middot; Not legal advice</p>
+    <p class="search-note">Data via EUIPO &amp; USPTO &middot; Not legal advice</p>
   </div>
 
-  <!-- Loading -->
   <div class="state-box hidden" id="loadingState">
     <div class="spinner"></div>
     <p>Searching trademark databases&hellip;</p>
   </div>
 
-  <!-- Error -->
   <div class="state-box hidden" id="errorState">
     <p style="font-weight:700;color:#991b1b">Search failed</p>
     <p class="error-text" id="errorMsg"></p>
   </div>
 
-  <!-- Results area (hidden until search) -->
   <div id="resultsArea" class="hidden">
 
-    <!-- Traffic light cards -->
     <div class="cards" id="cards">
       <div class="card" id="card-US">
         <div class="card-jurisdiction">United States</div>
@@ -461,26 +469,13 @@
         <div class="card-count" id="count-EM"></div>
         <a class="card-verify" href="https://euipo.europa.eu/eSearch/#advanced/trademarks" target="_blank" rel="noopener">Verify at EUIPO ↗</a>
       </div>
-
-      <div class="card" id="card-SE">
-        <div class="card-jurisdiction">Sweden</div>
-        <div class="card-office">PRV</div>
-        <div class="risk-indicator">
-          <div class="risk-dot"></div>
-          <span class="risk-label" id="label-SE">—</span>
-        </div>
-        <div class="card-count" id="count-SE"></div>
-        <a class="card-verify" href="https://search.prv.se/#/trademark" target="_blank" rel="noopener">Verify at PRV ↗</a>
-      </div>
     </div>
 
-    <!-- SE note -->
     <div class="note-bar">
-      Sweden (PRV): No automated API is available for Swedish national marks — always verify at
-      <a href="https://search.prv.se/#/trademark" target="_blank" rel="noopener">PRV's database</a>.
+      Sweden (PRV): no automated API available — verify at
+      <a href="https://search.prv.se/#/trademark" target="_blank" rel="noopener">search.prv.se</a>
     </div>
 
-    <!-- Legend -->
     <div class="legend">
       <div class="legend-item">
         <div class="legend-dot" style="background:#16a34a"></div>
@@ -496,7 +491,6 @@
       </div>
     </div>
 
-    <!-- Results table -->
     <div id="resultsSection">
       <div class="results-header">
         <div class="results-title" id="resultsTitle"></div>
@@ -504,19 +498,20 @@
           <button class="filter-tab active" data-office="ALL">All</button>
           <button class="filter-tab" data-office="US">US</button>
           <button class="filter-tab" data-office="EM">EU</button>
-          <button class="filter-tab" data-office="SE">SE</button>
         </div>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Mark</th>
-              <th>Office</th>
-              <th>Holder</th>
-              <th>Classes</th>
-              <th>Filing date</th>
-              <th>Status</th>
+              <th class="col-mark">Mark</th>
+              <th class="col-office">Office</th>
+              <th class="col-type">Type</th>
+              <th class="col-holder">Holder</th>
+              <th class="col-cls">Classes</th>
+              <th class="col-reg">Registered</th>
+              <th class="col-exp">Expires</th>
+              <th class="col-status">Status</th>
             </tr>
           </thead>
           <tbody id="resultsBody"></tbody>
@@ -524,9 +519,9 @@
       </div>
     </div>
 
-  </div><!-- /resultsArea -->
+  </div>
 
-</div><!-- /page -->
+</div>
 
 <footer>
   <span class="footer-bold">Bold</span>
@@ -555,18 +550,11 @@
   async function run() {
     const q = $('searchInput').value.trim();
     if (!q || q.length < 2) { $('searchInput').focus(); return; }
-
     setState('loading');
-
     try {
       const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
       const data = await res.json();
-
-      if (!res.ok) {
-        const detail = data.detail ? ` — ${data.detail}` : '';
-        throw new Error((data.error || 'Unknown error') + detail);
-      }
-
+      if (!res.ok) throw new Error((data.error || 'Unknown error') + (data.detail ? ` — ${data.detail}` : ''));
       setState('results', data);
     } catch (err) {
       setState('error', err.message);
@@ -574,9 +562,8 @@
   }
 
   function setState(mode, payload) {
-    $('searchBtn').disabled = mode === 'loading';
+    $('searchBtn').disabled    = mode === 'loading';
     $('searchBtn').textContent = mode === 'loading' ? 'Checking…' : 'Check';
-
     $('loadingState').classList.add('hidden');
     $('errorState').classList.add('hidden');
     $('resultsArea').classList.add('hidden');
@@ -586,27 +573,33 @@
     } else if (mode === 'error') {
       $('errorMsg').textContent = payload;
       $('errorState').classList.remove('hidden');
-    } else if (mode === 'results') {
+    } else {
       renderResults(payload);
       $('resultsArea').classList.remove('hidden');
     }
   }
 
-  const RISK_LABELS = { green: 'No live marks found', yellow: 'Similar marks exist', red: 'Exact match found' };
+  const RISK_LABELS = {
+    green:   'No live marks found',
+    yellow:  'Similar marks exist',
+    red:     'Exact match found',
+    unknown: 'Unknown',
+  };
 
   function renderResults(data) {
-    ['US','EM','SE'].forEach(code => {
+    ['US', 'EM'].forEach(code => {
       const o = data.offices[code];
       if (!o) return;
       const card = $(`card-${code}`);
       card.className = `card risk-${o.risk}`;
       $(`label-${code}`).textContent = RISK_LABELS[o.risk] || o.risk;
       $(`count-${code}`).textContent = o.totalMatches === 0
-        ? 'No matches' : `${o.liveCount} live · ${o.totalMatches} total`;
+        ? 'No matches'
+        : `${o.liveCount} live · ${o.totalMatches} total`;
     });
 
     allRows = [];
-    ['US','EM','SE'].forEach(code => {
+    ['US', 'EM'].forEach(code => {
       const o = data.offices[code];
       if (o?.marks) allRows.push(...o.marks.map(m => ({ ...m, _office: code })));
     });
@@ -628,7 +621,7 @@
 
     if (rows.length === 0) {
       $('resultsBody').innerHTML =
-        `<tr><td colspan="6" style="text-align:center;color:var(--gray-500);padding:40px 14px">
+        `<tr><td colspan="8" style="text-align:center;color:var(--gray-500);padding:40px 14px">
           No marks found for this jurisdiction.
         </td></tr>`;
       return;
@@ -638,30 +631,49 @@
       <tr>
         <td class="mark-name">${x(r.name || '—')}</td>
         <td><span class="office-chip">${x(r._office || r.office || '—')}</span></td>
-        <td style="max-width:220px;word-break:break-word">${x(r.holder || '—')}</td>
+        <td>${typeChip(r.markFeature)}</td>
+        <td style="word-break:break-word">${x(r.holder || '—')}</td>
         <td>${x(r.classes || '—')}</td>
-        <td style="white-space:nowrap">${x(r.filingDate || '—')}</td>
+        <td style="white-space:nowrap">${x(r.regDate || '—')}</td>
+        <td style="white-space:nowrap">${expiryCell(r.expiryDate)}</td>
         <td>${statusChip(r.status)}</td>
       </tr>`).join('');
   }
 
+  function typeChip(f) {
+    if (!f) return '<span class="type-chip">—</span>';
+    const label = f.charAt(0) + f.slice(1).toLowerCase();
+    return `<span class="type-chip">${x(label)}</span>`;
+  }
+
+  function expiryCell(d) {
+    if (!d) return '—';
+    const year = parseInt(d.slice(0, 4), 10);
+    const now  = new Date().getFullYear();
+    const cls  = year - now <= 2 ? ' class="expiry-soon"' : '';
+    return `<span${cls}>${x(d)}</span>`;
+  }
+
   function statusChip(s) {
-    const sl = (s || '').toLowerCase();
     if (!s) return `<span class="status-chip s-dead">Unknown</span>`;
-    const live    = ['registered','live','active'].some(k => sl.includes(k));
-    const pending = ['pending','filed','published','examination','opposition','application'].some(k => sl.includes(k));
-    const cls = live ? 's-live' : pending ? 's-pending' : 's-dead';
+    const sl      = s.toLowerCase();
+    const live    = ['registered', 'live', 'active'].some(k => sl.includes(k));
+    const pending = ['pending', 'filed', 'published', 'examination', 'opposition', 'application'].some(k => sl.includes(k));
+    const cls     = live ? 's-live' : pending ? 's-pending' : 's-dead';
     return `<span class="status-chip ${cls}">${x(s)}</span>`;
   }
 
-  // Load version badge from build-time generated file
   fetch('/version.json').then(r => r.json()).then(v => {
-    const el = document.getElementById('versionBadge');
-    if (el) el.textContent = `${v.commit} · ${new Date(v.built).toLocaleString('sv-SE', {timeZone:'Europe/Stockholm',hour12:false}).slice(0,16)}`;
+    const el = $('versionBadge');
+    if (el) el.textContent = `${v.commit} · ${new Date(v.built).toLocaleString('sv-SE', { timeZone: 'Europe/Stockholm', hour12: false }).slice(0, 16)}`;
   }).catch(() => {});
 
   function x(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 </script>
 </body>

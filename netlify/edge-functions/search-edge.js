@@ -142,15 +142,17 @@ async function fetchEUIPO(query) {
   if (!r.ok) throw new Error(`EUIPO search HTTP ${r.status}: ${body.slice(0, 120)}`);
 
   const items = JSON.parse(body).trademarks || [];
-  if (items.length > 0) console.log('[euipo] raw item[0]:', JSON.stringify(items[0]));
   return items.map(t => ({
-    name:       t.wordMarkSpecification?.verbalElement?.trim() || '',
-    holder:     (Array.isArray(t.applicants) ? t.applicants[0]?.name : '') || '',
-    status:     t.status || '',
-    appNumber:  t.applicationNumber || '',
-    filingDate: fmtDate(t.applicationDate || ''),
-    classes:    arrToStr(t.niceClasses || []),
-    office:     'EM',
+    name:         t.wordMarkSpecification?.verbalElement?.trim() || '',
+    holder:       (Array.isArray(t.applicants) ? t.applicants[0]?.name : '') || '',
+    status:       t.status || '',
+    appNumber:    t.applicationNumber || '',
+    filingDate:   fmtDate(t.applicationDate || ''),
+    regDate:      fmtDate(t.registrationDate || ''),
+    expiryDate:   fmtDate(t.expiryDate || ''),
+    markFeature:  t.markFeature || '',
+    classes:      arrToStr(t.niceClasses || []),
+    office:       'EM',
   }));
 }
 
