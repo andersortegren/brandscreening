@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Brand Name Check</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='14' fill='black'/><text x='50' y='74' font-family='system-ui,sans-serif' font-weight='900' font-size='54' fill='white' text-anchor='middle'>™</text></svg>">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -504,6 +505,23 @@
   </style>
 </head>
 <body>
+
+<!-- Password gate -->
+<div id="authOverlay" style="position:fixed;inset:0;background:white;z-index:9999;display:flex;align-items:center;justify-content:center;">
+  <div style="width:320px;text-align:center;">
+    <div style="font-size:22px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px;">Brand Name Check</div>
+    <div style="color:#888884;font-size:14px;margin-bottom:28px;">Enter password to continue</div>
+    <div style="display:flex;border:1.5px solid black;border-radius:8px;overflow:hidden;margin-bottom:10px;">
+      <input id="pwInput" type="password" placeholder="Password"
+        style="flex:1;height:48px;padding:0 16px;font-size:15px;border:none;outline:none;font-family:inherit;" />
+      <button id="pwBtn"
+        style="height:48px;padding:0 20px;background:black;color:white;border:none;font-size:13px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;font-family:inherit;">
+        Enter
+      </button>
+    </div>
+    <p id="pwError" style="color:#991b1b;font-size:13px;visibility:hidden;">Incorrect password</p>
+  </div>
+</div>
 
 <div class="page">
 
@@ -1007,6 +1025,34 @@
     const el = $('versionBadge');
     if (el) el.textContent = `${v.commit} · ${new Date(v.built).toLocaleString('sv-SE', { timeZone: 'Europe/Stockholm', hour12: false }).slice(0, 16)}`;
   }).catch(() => {});
+
+  // ── Password gate ────────────────────────
+  (function () {
+    const PW  = 'Fe4rlesscollab0ration';
+    const KEY = 'bnc_auth';
+    const overlay = document.getElementById('authOverlay');
+    const input   = document.getElementById('pwInput');
+    const btn     = document.getElementById('pwBtn');
+    const err     = document.getElementById('pwError');
+
+    if (sessionStorage.getItem(KEY) === '1') {
+      overlay.style.display = 'none';
+    }
+
+    function attempt() {
+      if (input.value === PW) {
+        sessionStorage.setItem(KEY, '1');
+        overlay.style.display = 'none';
+      } else {
+        err.style.visibility = 'visible';
+        input.value = '';
+        input.focus();
+      }
+    }
+
+    btn.addEventListener('click', attempt);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
+  })();
 
   function x(s) {
     return String(s)
