@@ -2,9 +2,9 @@
 // Runs on Cloudflare's network — required for EUIPO API access.
 //
 // Env vars:
-//   PARSE_API_KEY       - free at parse.bot (USPTO data)
-//   EUIPO_CLIENT_ID     - from dev.euipo.europa.eu app
-//   EUIPO_CLIENT_SECRET
+//   PARSE_API_KEY              - free at parse.bot (USPTO data)
+//   EUIPO_SANDBOX_CLIENT_ID    - from dev-sandbox.euipo.europa.eu app
+//   EUIPO_SANDBOX_CLIENT_SECRET
 
 const LIVE_KEYWORDS = [
   'registered', 'live', 'pending', 'published', 'filed', 'active',
@@ -102,14 +102,14 @@ async function fetchUSPTO(query) {
   }));
 }
 
-// ---------- EUIPO (production) ----------
+// ---------- EUIPO (sandbox — production auth.euipo.europa.eu returns 502 until EUIPO fixes it) ----------
 
 async function fetchEUIPO(query) {
-  const clientId     = Deno.env.get('EUIPO_CLIENT_ID');
-  const clientSecret = Deno.env.get('EUIPO_CLIENT_SECRET');
+  const clientId     = Deno.env.get('EUIPO_SANDBOX_CLIENT_ID');
+  const clientSecret = Deno.env.get('EUIPO_SANDBOX_CLIENT_SECRET');
   if (!clientId || !clientSecret) throw new Error('EUIPO not configured');
 
-  const tokenR = await fetch('https://auth.euipo.europa.eu/oidc/accessToken', {
+  const tokenR = await fetch('https://auth-sandbox.euipo.europa.eu/oidc/accessToken', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
     body: new URLSearchParams({
@@ -127,7 +127,7 @@ async function fetchEUIPO(query) {
   const token  = JSON.parse(tokenText).access_token;
   const rsql   = `wordMarkSpecification.verbalElement==*${query}*`;
   const params = new URLSearchParams({ query: rsql, page: '0', size: '50' });
-  const url    = `https://api.euipo.europa.eu/trademark-search/trademarks?${params}`;
+  const url    = `https://api-sandbox.euipo.europa.eu/trademark-search/trademarks?${params}`;
 
   const r = await fetch(url, {
     headers: {
