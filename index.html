@@ -358,14 +358,8 @@
 
     .office-chip {
       display: inline-block;
-      padding: 1px 6px;
-      border-radius: 3px;
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.05em;
-      background: var(--gray-100);
-      color: var(--gray-500);
-      border: 1px solid var(--gray-200);
+      font-size: 18px;
+      line-height: 1;
     }
 
     .type-chip {
@@ -872,7 +866,7 @@
     $('resultsBody').innerHTML = rows.map(r => `
       <tr>
         <td class="mark-name">${x(r.name || '—')}</td>
-        <td><span class="office-chip">${x(r._office || r.office || '—')}</span></td>
+        <td><span class="office-chip">${officeFlag(r._office || r.office || '—')}</span></td>
         <td class="hide-mobile">${typeChip(r.markFeature)}</td>
         <td class="hide-mobile" style="word-break:break-word">${x(r.holder || '—')}</td>
         <td class="hide-mobile">${x(r.classes || '—')}</td>
@@ -968,7 +962,7 @@
             ${marks.map(r => `
               <tr>
                 <td class="mark-name">${x(r.name || '—')}</td>
-                <td><span class="office-chip">${x(r._office || r.office || '—')}</span></td>
+                <td><span class="office-chip">${officeFlag(r._office || r.office || '—')}</span></td>
                 <td class="hide-mobile">${typeChip(r.markFeature)}</td>
                 <td class="hide-mobile" style="word-break:break-word">${x(r.holder || '—')}</td>
                 <td class="hide-mobile">${x(r.classes || '—')}</td>
@@ -1053,6 +1047,11 @@
     btn.addEventListener('click', attempt);
     input.addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
   })();
+
+  const OFFICE_FLAGS = { US: '🇺🇸', EM: '🇪🇺', SE: '🇸🇪' };
+  function officeFlag(code) {
+    return OFFICE_FLAGS[code] || x(code);
+  }
 
   function x(s) {
     return String(s)
